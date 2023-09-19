@@ -31,13 +31,18 @@ class Cube {
                 surface.pixels[i] =
                     when (file) {
                         "n" -> Color.RED.rgb
-                        "e" -> Color.BLUE.rgb
+                        "e" -> Color.CYAN.rgb
                         "w" -> Color.GREEN.rgb
                         "o" -> Color.YELLOW.rgb
                         "r" -> Color.MAGENTA.rgb
+                        "s" -> Color.BLUE.rgb
                         else -> Color.BLACK.rgb
                     }
             }
+        }
+
+        fun getPixel(position: IntVector): Int {
+            return surface.pixels[position.x + position.y * SIZE]
         }
     }
 
@@ -49,25 +54,46 @@ class Cube {
     private val scale = 10f
 
     fun display(position: PVector) {
-        app.image(Face.Obverse.surface, position.x, position.y, SIZE * scale, SIZE * scale)
-        app.image(Face.North.surface, position.x, position.y - SIZE * scale, SIZE * scale, SIZE * scale)
-        app.image(Face.South.surface, position.x, position.y + SIZE * scale, SIZE * scale, SIZE * scale)
-        app.image(Face.East.surface, position.x + SIZE * scale, position.y, SIZE * scale, SIZE * scale)
-        app.image(Face.West.surface, position.x - SIZE * scale, position.y, SIZE * scale, SIZE * scale)
-        app.image(Face.Reverse.surface, position.x + SIZE * scale * 2, position.y, SIZE * scale, SIZE * scale)
+        val img = app.createImage(SIZE * 4, SIZE * 3, PConstants.ARGB);
+        img.loadPixels()
+
+        for (x in 0 until SIZE * 4) {
+            for (y in 0 until SIZE * 3) {
+                val i = x + y * SIZE * 4
+
+                img.pixels[i] = netPixel(IntVector(x, y))
+            }
+        }
+        img.updatePixels()
+
+        app.image(img, position.x, position.y, SIZE * 4 * scale, SIZE * 3 * scale)
     }
 
-    fun netPixel(x: Int, y: Int): Int {
-        val position = IntVector(x % SIZE, y % SIZE)
-        val face = when {
-            x < SIZE -> Face.West
-            x > SIZE * 3 -> Face.Reverse
-            x > SIZE * 2 -> Face.East
-            y < SIZE -> Face.North
-            y > SIZE * 2 -> Face.South
-            else -> Face.Obverse
+    fun netPixel(position: IntVector): Int {
+        val facePos = IntVector(position.x % SIZE, position.y % SIZE)
+        return when {
+            position.y < SIZE -> // row 1
+                when {
+                    position.x < SIZE -> Face.North.getPixel(IntVector(SIZE - 1 - facePos.y, facePos.x))
+                    position.x < SIZE * 2 -> Face.North.getPixel(facePos)
+                    position.x < SIZE * 3 -> Face.North.getPixel(IntVector(facePos.y, SIZE - 1 - facePos.x))
+                    else -> Face.North.getPixel(IntVector(SIZE - 1 - facePos.x, SIZE - 1 - facePos.y))
+                }
+            position.y < SIZE * 2 -> // row 2
+                when {
+                    position.x < SIZE -> Face.West.getPixel(facePos)
+                    position.x < SIZE * 2 -> Face.Obverse.getPixel(facePos)
+                    position.x < SIZE * 3 -> Face.East.getPixel(facePos)
+                    else -> Face.Reverse.getPixel(facePos)
+                }
+            else -> // row 3
+                when {
+                    position.x < SIZE -> Face.South.getPixel(IntVector(facePos.y, SIZE - 1 - facePos.x))
+                    position.x < SIZE * 2 -> Face.South.getPixel(facePos)
+                    position.x < SIZE * 3 -> Face.South.getPixel(IntVector(SIZE - 1 - facePos.y, facePos.x))
+                    else -> Face.South.getPixel(IntVector(SIZE - 1 - facePos.x, SIZE - 1 - facePos.y))
+                }
         }
-        return face.surface.pixels[position.x + position.y * SIZE]
     }
 
     operator fun Position.plus(direction: Directions): Position {

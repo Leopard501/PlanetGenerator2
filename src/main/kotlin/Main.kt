@@ -35,9 +35,9 @@ class Main: PApplet() {
     override fun draw() {
         background(0)
 
-//        cube.display(PVector(width / 2f, height / 2f))
+        planet.display(PVector(width / 2f, height / 2f))
         planet.update()
-        planet.display(PVector(width / 2f, height /2f))
+//        cube.display(PVector(width / 2f, height /2f))
     }
 }
 
