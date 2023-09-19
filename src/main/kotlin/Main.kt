@@ -4,8 +4,7 @@ import processing.core.PApplet
 import processing.core.PConstants
 import processing.core.PVector
 
-typealias Position = Pair<IntVector, Planet.Face>
-typealias Walker = Pair<Position, Planet.Directions>
+typealias Position = Pair<IntVector, Cube.Face>
 
 var app = Main()
 
@@ -15,6 +14,7 @@ fun main() {
 
 class Main: PApplet() {
 
+    private lateinit var cube: Cube
     private lateinit var planet: Planet
 
     override fun settings() {
@@ -28,14 +28,16 @@ class Main: PApplet() {
         imageMode(PConstants.CENTER)
         surface.setTitle("Experiment")
 
+        cube = Cube()
         planet = Planet()
     }
 
     override fun draw() {
         background(0)
 
-        planet.walk()
-        planet.display(PVector(width / 2f, height / 2f))
+//        cube.display(PVector(width / 2f, height / 2f))
+        planet.update()
+        planet.display(PVector(width / 2f, height /2f))
     }
 }
 
