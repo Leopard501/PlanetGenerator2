@@ -114,136 +114,166 @@ class Cube(private val size: Int) {
         }
     }
 
-    operator fun Position.plus(direction: Directions): Position {
-        if (this.second == FaceType.North || this.second == FaceType.South) {
-            val quadrant = getQuadrant(this.first, direction)
+    fun randomPosition(): Position {
+        return Pair(
+            IntVector(app.random(size.toFloat()).toInt(), app.random(size.toFloat()).toInt()),
+            FaceType.values()[app.random(6f).toInt()]
+        )
+    }
+
+    fun changePosition(position: Position, change: IntVector): Position {
+        var pos = position.copy()
+        if (change.x < 0) {
+            for (i in change.x until  0) {
+                pos = changePosition(pos, Directions.Left)
+            }
+        } else if (change.x > 0) {
+            for (i in 0 until  change.x) {
+                pos = changePosition(pos, Directions.Right)
+            }
+        }
+        if (change.y < 0) {
+            for (i in change.y until  0) {
+                pos = changePosition(pos, Directions.Up)
+            }
+        } else if (change.y > 0) {
+            for (i in 0 until  change.y) {
+                pos = changePosition(pos, Directions.Down)
+            }
+        }
+        return pos
+    }
+
+    fun changePosition(position: Position, direction: Directions): Position {
+        if (position.second == FaceType.North || position.second == FaceType.South) {
+            val quadrant = getQuadrant(position.first, direction)
             return when (direction) {
                 Directions.Right -> Pair(
                     when (quadrant) {
-                        Directions.Down -> this.first + Directions.Right
-                        Directions.Right -> this.first + Directions.Up
-                        Directions.Up -> this.first + Directions.Left
-                        Directions.Left -> this.first + Directions.Down
+                        Directions.Down -> position.first + Directions.Right
+                        Directions.Right -> position.first + Directions.Up
+                        Directions.Up -> position.first + Directions.Left
+                        Directions.Left -> position.first + Directions.Down
                     },
-                    this.second
+                    position.second
                 )
                 Directions.Left -> Pair(
                     when (quadrant) {
-                        Directions.Down -> this.first + Directions.Left
-                        Directions.Right -> this.first + Directions.Down
-                        Directions.Up -> this.first + Directions.Right
-                        Directions.Left -> this.first + Directions.Up
+                        Directions.Down -> position.first + Directions.Left
+                        Directions.Right -> position.first + Directions.Down
+                        Directions.Up -> position.first + Directions.Right
+                        Directions.Left -> position.first + Directions.Up
                     },
-                    this.second
+                    position.second
                 )
                 Directions.Up ->
-                    if (this.second == FaceType.North) {
+                    if (position.second == FaceType.North) {
                         Pair(when (quadrant) {
-                            Directions.Down -> this.first + Directions.Up
-                            Directions.Right -> this.first + Directions.Left
-                            Directions.Up -> this.first + Directions.Down
-                            Directions.Left -> this.first + Directions.Right
+                            Directions.Down -> position.first + Directions.Up
+                            Directions.Right -> position.first + Directions.Left
+                            Directions.Up -> position.first + Directions.Down
+                            Directions.Left -> position.first + Directions.Right
                         },
-                        this.second)
+                        position.second)
                     } else {
                         when (quadrant) {
                             Directions.Down ->
-                                if (this.first.y == size - 1) {
-                                    Pair(IntVector(size - 1 - this.first.x, size - 1), FaceType.Reverse)
+                                if (position.first.y == size - 1) {
+                                    Pair(IntVector(size - 1 - position.first.x, size - 1), FaceType.Reverse)
                                 } else {
-                                    Pair(this.first + Directions.Down, this.second)
+                                    Pair(position.first + Directions.Down, position.second)
                                 }
                             Directions.Right ->
-                                if (this.first.x == size - 1) {
-                                    Pair(IntVector(this.first.y, size - 1), FaceType.East)
+                                if (position.first.x == size - 1) {
+                                    Pair(IntVector(position.first.y, size - 1), FaceType.East)
                                 } else {
-                                    Pair(this.first + Directions.Right, this.second)
+                                    Pair(position.first + Directions.Right, position.second)
                                 }
                             Directions.Up ->
-                                if (this.first.y == 0) {
-                                    Pair(IntVector(this.first.x, size - 1), FaceType.Obverse)
+                                if (position.first.y == 0) {
+                                    Pair(IntVector(position.first.x, size - 1), FaceType.Obverse)
                                 } else {
-                                    Pair(this.first + Directions.Up, this.second)
+                                    Pair(position.first + Directions.Up, position.second)
                                 }
                             Directions.Left ->
-                                if (this.first.x == 0) {
-                                    Pair(IntVector(size - 1 - this.first.y, size - 1), FaceType.West)
+                                if (position.first.x == 0) {
+                                    Pair(IntVector(size - 1 - position.first.y, size - 1), FaceType.West)
                                 } else {
-                                    Pair(this.first + Directions.Left, this.second)
+                                    Pair(position.first + Directions.Left, position.second)
                                 }
                         }
                     }
                 Directions.Down ->
-                    if (this.second == FaceType.North) {
+                    if (position.second == FaceType.North) {
                         when (quadrant) {
                             Directions.Down ->
-                                if (this.first.y == size - 1) {
-                                    Pair(IntVector(this.first.x, 0), FaceType.Obverse)
+                                if (position.first.y == size - 1) {
+                                    Pair(IntVector(position.first.x, 0), FaceType.Obverse)
                                 } else {
-                                    Pair(this.first + Directions.Down, this.second)
+                                    Pair(position.first + Directions.Down, position.second)
                                 }
                             Directions.Right ->
-                                if (this.first.x == size - 1) {
-                                    Pair(IntVector(size - 1 - this.first.y, 0), FaceType.East)
+                                if (position.first.x == size - 1) {
+                                    Pair(IntVector(size - 1 - position.first.y, 0), FaceType.East)
                                 } else {
-                                    Pair(this.first + Directions.Right, this.second)
+                                    Pair(position.first + Directions.Right, position.second)
                                 }
                             Directions.Up ->
-                                if (this.first.y == 0) {
-                                    Pair(IntVector(size - 1 - this.first.x, 0), FaceType.Reverse)
+                                if (position.first.y == 0) {
+                                    Pair(IntVector(size - 1 - position.first.x, 0), FaceType.Reverse)
                                 } else {
-                                    Pair(this.first + Directions.Up, this.second)
+                                    Pair(position.first + Directions.Up, position.second)
                                 }
                             Directions.Left ->
-                                if (this.first.x == 0) {
-                                    Pair(IntVector(this.first.y, 0), FaceType.West)
+                                if (position.first.x == 0) {
+                                    Pair(IntVector(position.first.y, 0), FaceType.West)
                                 } else {
-                                    Pair(this.first + Directions.Left, this.second)
+                                    Pair(position.first + Directions.Left, position.second)
                                 }
                         }
                     } else {
                         Pair(when (quadrant) {
-                            Directions.Down -> this.first + Directions.Up
-                            Directions.Right -> this.first + Directions.Left
-                            Directions.Up -> this.first + Directions.Down
-                            Directions.Left -> this.first + Directions.Right
+                            Directions.Down -> position.first + Directions.Up
+                            Directions.Right -> position.first + Directions.Left
+                            Directions.Up -> position.first + Directions.Down
+                            Directions.Left -> position.first + Directions.Right
                         },
-                        this.second)
+                        position.second)
                     }
             }
         } else {
             // Right across edge
-            if (this.first.x == size - 1 && direction == Directions.Right) {
-                return Pair(IntVector(0, this.first.y), this.second + direction)
+            if (position.first.x == size - 1 && direction == Directions.Right) {
+                return Pair(IntVector(0, position.first.y), position.second + direction)
             } // Left across edge
-            else if (this.first.x == 0 && direction == Directions.Left) {
-                return Pair(IntVector(size - 1, this.first.y), this.second + direction)
+            else if (position.first.x == 0 && direction == Directions.Left) {
+                return Pair(IntVector(size - 1, position.first.y), position.second + direction)
             } // Up across edge
-            else if (this.first.y == 0 && direction == Directions.Up) {
+            else if (position.first.y == 0 && direction == Directions.Up) {
                 return Pair(
-                    when (this.second) {
-                        FaceType.Obverse -> IntVector(this.first.x, size - 1)
-                        FaceType.East -> IntVector(size - 1, size - 1 - this.first.x)
-                        FaceType.Reverse -> IntVector(size - 1 - this.first.x, 0)
-                        FaceType.West -> IntVector(0, this.first.x)
+                    when (position.second) {
+                        FaceType.Obverse -> IntVector(position.first.x, size - 1)
+                        FaceType.East -> IntVector(size - 1, size - 1 - position.first.x)
+                        FaceType.Reverse -> IntVector(size - 1 - position.first.x, 0)
+                        FaceType.West -> IntVector(0, position.first.x)
                         else -> throw RuntimeException("Should not be possible")
                     },
-                    this.second + direction
+                    position.second + direction
                 )
             } // Down across edge
-            else if (this.first.y == size - 1 && direction == Directions.Down) {
+            else if (position.first.y == size - 1 && direction == Directions.Down) {
                 return Pair(
-                    when (this.second) {
-                        FaceType.Obverse -> IntVector(this.first.x, 0)
-                        FaceType.East -> IntVector(size - 1, this.first.x)
-                        FaceType.Reverse -> IntVector(size - 1 - this.first.x, size - 1)
-                        FaceType.West -> IntVector(0, size - 1 - this.first.x)
+                    when (position.second) {
+                        FaceType.Obverse -> IntVector(position.first.x, 0)
+                        FaceType.East -> IntVector(size - 1, position.first.x)
+                        FaceType.Reverse -> IntVector(size - 1 - position.first.x, size - 1)
+                        FaceType.West -> IntVector(0, size - 1 - position.first.x)
                         else -> throw RuntimeException("Should not be possible")
                     },
-                    this.second + direction
+                    position.second + direction
                 )
             } // Within board
-            else return Pair(this.first + direction, this.second)
+            else return Pair(position.first + direction, position.second)
         }
     }
 

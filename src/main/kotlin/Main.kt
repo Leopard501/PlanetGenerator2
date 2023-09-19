@@ -29,19 +29,19 @@ class Main: PApplet() {
         imageMode(PConstants.CENTER)
         surface.setTitle("Experiment")
 
-        cube = Cube(16)
+//        cube = Cube(16)
         planet = Planet(16)
-        planetSurface = PlanetSurface(16, Cube(16))
+//        planetSurface = PlanetSurface(16, Cube(16))
     }
 
     override fun draw() {
         background(0)
 
-//        planet.display(PVector(width / 2f, height / 2f))
-//        planet.update()
+        planet.display(PVector(width / 2f, height / 2f))
+        planet.update()
 //        cube.display(PVector(width / 2f, height /2f))
-        planetSurface.update()
-        planetSurface.display(PVector(width / 2f, height / 2f))
+//        planetSurface.update()
+//        planetSurface.display(PVector(width / 2f, height / 2f))
     }
 }
 

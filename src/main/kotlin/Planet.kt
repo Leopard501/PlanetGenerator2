@@ -9,6 +9,7 @@ import kotlin.math.sin
 class Planet(private val size: Int) {
 
     private val cube = Cube(size)
+    private val planetSurface = PlanetSurface(size, cube)
     private val scale = 10f
     private var center = size + size / 2
 
@@ -16,6 +17,8 @@ class Planet(private val size: Int) {
         if (app.frameCount % 10 != 0) return
         center++
         if (center >= size * 4) center = 0
+
+        planetSurface.update()
     }
 
     fun display(position: PVector) {
