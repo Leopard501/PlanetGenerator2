@@ -5,7 +5,7 @@ import processing.core.PImage
 import processing.core.PVector
 import java.awt.Color
 
-class Cube {
+class Cube(private val size: Int) {
 
     enum class Directions {
         Right,
@@ -14,90 +14,108 @@ class Cube {
         Down
     }
 
-    enum class Face(file: String) {
-        North("n"),
-        South("s"),
-        East("e"),
-        West("w"),
-        Obverse("o"),
-        Reverse("r");
-
-//        var surface: PImage = app.loadImage("sprites/$file.png")
-        var surface: PImage = app.createImage(SIZE, SIZE, PConstants.ARGB)
+    data class Face(val size: Int, val faceType: FaceType) {
+        private val img: PImage = app.createImage(size, size, PConstants.ARGB)
 
         init {
-            surface.loadPixels()
-            for (i in 0 until SIZE * SIZE) {
-                surface.pixels[i] =
-                    when (file) {
-                        "n" -> Color.RED.rgb
-                        "e" -> Color.CYAN.rgb
-                        "w" -> Color.GREEN.rgb
-                        "o" -> Color.YELLOW.rgb
-                        "r" -> Color.MAGENTA.rgb
-                        "s" -> Color.BLUE.rgb
-                        else -> Color.BLACK.rgb
+            img.loadPixels()
+            for (i in 0 until size * size) {
+                img.pixels[i] =
+                    when (faceType) {
+                        FaceType.North -> Color.RED.rgb
+                        FaceType.East -> Color.CYAN.rgb
+                        FaceType.West -> Color.GREEN.rgb
+                        FaceType.Obverse -> Color.YELLOW.rgb
+                        FaceType.Reverse -> Color.MAGENTA.rgb
+                        FaceType.South -> Color.BLUE.rgb
                     }
             }
         }
 
         fun getPixel(position: IntVector): Int {
-            return surface.pixels[position.x + position.y * SIZE]
+            return img.pixels[position.x + position.y * size]
+        }
+
+        fun setPixel(position: IntVector, color: Int) {
+            img.pixels[position.x + position.y * size] = color
+            img.updatePixels()
         }
     }
 
-    companion object {
-        // Must be even
-        const val SIZE = 16
+    enum class FaceType {
+        North,
+        South,
+        East,
+        West,
+        Obverse,
+        Reverse;
     }
+
+    private val north = Face(size, FaceType.North)
+    private val south = Face(size, FaceType.South)
+    private val east = Face(size, FaceType.East)
+    private val west = Face(size, FaceType.West)
+    private val obverse = Face(size, FaceType.Obverse)
+    private val reverse = Face(size, FaceType.Reverse)
 
     private val scale = 10f
 
     fun display(position: PVector) {
-        val img = app.createImage(SIZE * 4, SIZE * 3, PConstants.ARGB);
+        val img = app.createImage(size * 4, size * 3, PConstants.ARGB);
         img.loadPixels()
 
-        for (x in 0 until SIZE * 4) {
-            for (y in 0 until SIZE * 3) {
-                val i = x + y * SIZE * 4
+        for (x in 0 until size * 4) {
+            for (y in 0 until size * 3) {
+                val i = x + y * size * 4
 
                 img.pixels[i] = netPixel(IntVector(x, y))
             }
         }
         img.updatePixels()
 
-        app.image(img, position.x, position.y, SIZE * 4 * scale, SIZE * 3 * scale)
+        app.image(img, position.x, position.y, size * 4 * scale, size * 3 * scale)
+    }
+
+    fun setPixel(position: IntVector, face: FaceType, color: Int) {
+        when (face) {
+            FaceType.North -> north.setPixel(position, color)
+            FaceType.South -> south.setPixel(position, color)
+            FaceType.East -> east.setPixel(position, color)
+            FaceType.West -> west.setPixel(position, color)
+            FaceType.Obverse -> obverse.setPixel(position, color)
+            FaceType.Reverse -> reverse.setPixel(position, color)
+        }
     }
 
     fun netPixel(position: IntVector): Int {
-        val facePos = IntVector(position.x % SIZE, position.y % SIZE)
+        val facePos = IntVector(position.x % size, position.y % size)
         return when {
-            position.y < SIZE -> // row 1
+            position.y < size -> // row 1
                 when {
-                    position.x < SIZE -> Face.North.getPixel(IntVector(SIZE - 1 - facePos.y, facePos.x))
-                    position.x < SIZE * 2 -> Face.North.getPixel(facePos)
-                    position.x < SIZE * 3 -> Face.North.getPixel(IntVector(facePos.y, SIZE - 1 - facePos.x))
-                    else -> Face.North.getPixel(IntVector(SIZE - 1 - facePos.x, SIZE - 1 - facePos.y))
+                    position.x < size -> north.getPixel(IntVector(size - 1 - facePos.y, facePos.x))
+                    position.x < size * 2 -> north.getPixel(facePos)
+                    position.x < size * 3 -> north.getPixel(IntVector(facePos.y, size - 1 - facePos.x))
+                    else -> north.getPixel(IntVector(size - 1 - facePos.x, size - 1 - facePos.y))
                 }
-            position.y < SIZE * 2 -> // row 2
+            position.y < size * 2 -> // row 2
                 when {
-                    position.x < SIZE -> Face.West.getPixel(facePos)
-                    position.x < SIZE * 2 -> Face.Obverse.getPixel(facePos)
-                    position.x < SIZE * 3 -> Face.East.getPixel(facePos)
-                    else -> Face.Reverse.getPixel(facePos)
+                    position.x < size -> west.getPixel(facePos)
+                    position.x < size * 2 -> obverse.getPixel(facePos)
+                    position.x < size * 3 -> east.getPixel(facePos)
+                    else -> reverse.getPixel(facePos)
                 }
             else -> // row 3
                 when {
-                    position.x < SIZE -> Face.South.getPixel(IntVector(facePos.y, SIZE - 1 - facePos.x))
-                    position.x < SIZE * 2 -> Face.South.getPixel(facePos)
-                    position.x < SIZE * 3 -> Face.South.getPixel(IntVector(SIZE - 1 - facePos.y, facePos.x))
-                    else -> Face.South.getPixel(IntVector(SIZE - 1 - facePos.x, SIZE - 1 - facePos.y))
+                    position.x < size -> south.getPixel(IntVector(facePos.y, size - 1 - facePos.x))
+                    position.x < size * 2 -> south.getPixel(facePos)
+                    position.x < size * 3 -> south.getPixel(IntVector(size - 1 - facePos.y, facePos.x))
+                    else -> south.getPixel(IntVector(size - 1 - facePos.x, size - 1 - facePos.y))
                 }
         }
     }
 
     operator fun Position.plus(direction: Directions): Position {
-        if (this.second == Face.North || this.second == Face.South) {
+        if (this.second == FaceType.North || this.second == FaceType.South) {
             val quadrant = getQuadrant(this.first, direction)
             return when (direction) {
                 Directions.Right -> Pair(
@@ -119,7 +137,7 @@ class Cube {
                     this.second
                 )
                 Directions.Up ->
-                    if (this.second == Face.North) {
+                    if (this.second == FaceType.North) {
                         Pair(when (quadrant) {
                             Directions.Down -> this.first + Directions.Up
                             Directions.Right -> this.first + Directions.Left
@@ -130,55 +148,55 @@ class Cube {
                     } else {
                         when (quadrant) {
                             Directions.Down ->
-                                if (this.first.y == SIZE - 1) {
-                                    Pair(IntVector(SIZE - 1 - this.first.x, SIZE - 1), Face.Reverse)
+                                if (this.first.y == size - 1) {
+                                    Pair(IntVector(size - 1 - this.first.x, size - 1), FaceType.Reverse)
                                 } else {
                                     Pair(this.first + Directions.Down, this.second)
                                 }
                             Directions.Right ->
-                                if (this.first.x == SIZE - 1) {
-                                    Pair(IntVector(this.first.y, SIZE - 1), Face.East)
+                                if (this.first.x == size - 1) {
+                                    Pair(IntVector(this.first.y, size - 1), FaceType.East)
                                 } else {
                                     Pair(this.first + Directions.Right, this.second)
                                 }
                             Directions.Up ->
                                 if (this.first.y == 0) {
-                                    Pair(IntVector(this.first.x, SIZE - 1), Face.Obverse)
+                                    Pair(IntVector(this.first.x, size - 1), FaceType.Obverse)
                                 } else {
                                     Pair(this.first + Directions.Up, this.second)
                                 }
                             Directions.Left ->
                                 if (this.first.x == 0) {
-                                    Pair(IntVector(SIZE - 1 - this.first.y, SIZE - 1), Face.West)
+                                    Pair(IntVector(size - 1 - this.first.y, size - 1), FaceType.West)
                                 } else {
                                     Pair(this.first + Directions.Left, this.second)
                                 }
                         }
                     }
                 Directions.Down ->
-                    if (this.second == Face.North) {
+                    if (this.second == FaceType.North) {
                         when (quadrant) {
                             Directions.Down ->
-                                if (this.first.y == SIZE - 1) {
-                                    Pair(IntVector(this.first.x, 0), Face.Obverse)
+                                if (this.first.y == size - 1) {
+                                    Pair(IntVector(this.first.x, 0), FaceType.Obverse)
                                 } else {
                                     Pair(this.first + Directions.Down, this.second)
                                 }
                             Directions.Right ->
-                                if (this.first.x == SIZE - 1) {
-                                    Pair(IntVector(SIZE - 1 - this.first.y, 0), Face.East)
+                                if (this.first.x == size - 1) {
+                                    Pair(IntVector(size - 1 - this.first.y, 0), FaceType.East)
                                 } else {
                                     Pair(this.first + Directions.Right, this.second)
                                 }
                             Directions.Up ->
                                 if (this.first.y == 0) {
-                                    Pair(IntVector(SIZE - 1 - this.first.x, 0), Face.Reverse)
+                                    Pair(IntVector(size - 1 - this.first.x, 0), FaceType.Reverse)
                                 } else {
                                     Pair(this.first + Directions.Up, this.second)
                                 }
                             Directions.Left ->
                                 if (this.first.x == 0) {
-                                    Pair(IntVector(this.first.y, 0), Face.West)
+                                    Pair(IntVector(this.first.y, 0), FaceType.West)
                                 } else {
                                     Pair(this.first + Directions.Left, this.second)
                                 }
@@ -195,31 +213,31 @@ class Cube {
             }
         } else {
             // Right across edge
-            if (this.first.x == SIZE - 1 && direction == Directions.Right) {
+            if (this.first.x == size - 1 && direction == Directions.Right) {
                 return Pair(IntVector(0, this.first.y), this.second + direction)
             } // Left across edge
             else if (this.first.x == 0 && direction == Directions.Left) {
-                return Pair(IntVector(SIZE - 1, this.first.y), this.second + direction)
+                return Pair(IntVector(size - 1, this.first.y), this.second + direction)
             } // Up across edge
             else if (this.first.y == 0 && direction == Directions.Up) {
                 return Pair(
                     when (this.second) {
-                        Face.Obverse -> IntVector(this.first.x, SIZE - 1)
-                        Face.East -> IntVector(SIZE - 1, SIZE - 1 - this.first.x)
-                        Face.Reverse -> IntVector(SIZE - 1 - this.first.x, 0)
-                        Face.West -> IntVector(0, this.first.x)
+                        FaceType.Obverse -> IntVector(this.first.x, size - 1)
+                        FaceType.East -> IntVector(size - 1, size - 1 - this.first.x)
+                        FaceType.Reverse -> IntVector(size - 1 - this.first.x, 0)
+                        FaceType.West -> IntVector(0, this.first.x)
                         else -> throw RuntimeException("Should not be possible")
                     },
                     this.second + direction
                 )
             } // Down across edge
-            else if (this.first.y == SIZE - 1 && direction == Directions.Down) {
+            else if (this.first.y == size - 1 && direction == Directions.Down) {
                 return Pair(
                     when (this.second) {
-                        Face.Obverse -> IntVector(this.first.x, 0)
-                        Face.East -> IntVector(SIZE - 1, this.first.x)
-                        Face.Reverse -> IntVector(SIZE - 1 - this.first.x, SIZE - 1)
-                        Face.West -> IntVector(0, SIZE - 1 - this.first.x)
+                        FaceType.Obverse -> IntVector(this.first.x, 0)
+                        FaceType.East -> IntVector(size - 1, this.first.x)
+                        FaceType.Reverse -> IntVector(size - 1 - this.first.x, size - 1)
+                        FaceType.West -> IntVector(0, size - 1 - this.first.x)
                         else -> throw RuntimeException("Should not be possible")
                     },
                     this.second + direction
@@ -231,31 +249,31 @@ class Cube {
 
     private fun getQuadrant(position: IntVector, direction: Directions): Directions {
         return if (position.x > position.y) {
-            if (position.x > SIZE - 1 - position.y) {
+            if (position.x > size - 1 - position.y) {
                 Directions.Right
-            } else if (position.x < SIZE - 1 - position.y) {
+            } else if (position.x < size - 1 - position.y) {
                 Directions.Up
             } else {
                 if (direction == Directions.Left) Directions.Right
                 else Directions.Up
             }
         } else if (position.x < position.y) {
-            if (position.x > SIZE - 1 - position.y) {
+            if (position.x > size - 1 - position.y) {
                 Directions.Down
-            } else if (position.x < SIZE - 1 - position.y) {
+            } else if (position.x < size - 1 - position.y) {
                 Directions.Left
             } else {
                 if (direction == Directions.Left) Directions.Left
                 else Directions.Down
             }
         } else {
-            if (position.x > SIZE - 1 - position.y) {
+            if (position.x > size - 1 - position.y) {
                 if (direction == Directions.Left) Directions.Down
                 else Directions.Right
-            } else if (position.x < SIZE - 1 - position.y) {
+            } else if (position.x < size - 1 - position.y) {
                 if (direction == Directions.Left) Directions.Up
                 else Directions.Left
-            } else Directions.Right // very center, only possible if SIZE is odd
+            } else Directions.Right // very center, only possible if size is odd
         }
     }
 
@@ -268,54 +286,54 @@ class Cube {
         }
     }
 
-    operator fun Face.plus(direction: Directions): Face {
+    operator fun FaceType.plus(direction: Directions): FaceType {
         return when (this) {
-            Face.North -> {
+            FaceType.North -> {
                 when (direction) {
-                    Directions.Right -> Face.East
-                    Directions.Left -> Face.West
-                    Directions.Up -> Face.Reverse
-                    Directions.Down -> Face.Obverse
+                    Directions.Right -> FaceType.East
+                    Directions.Left -> FaceType.West
+                    Directions.Up -> FaceType.Reverse
+                    Directions.Down -> FaceType.Obverse
                 }
             }
-            Face.South -> {
+            FaceType.South -> {
                 when (direction) {
-                    Directions.Right -> Face.East
-                    Directions.Left -> Face.West
-                    Directions.Up -> Face.Obverse
-                    Directions.Down -> Face.Reverse
+                    Directions.Right -> FaceType.East
+                    Directions.Left -> FaceType.West
+                    Directions.Up -> FaceType.Obverse
+                    Directions.Down -> FaceType.Reverse
                 }
             }
-            Face.Obverse -> {
+            FaceType.Obverse -> {
                 when (direction) {
-                    Directions.Right -> Face.East
-                    Directions.Left -> Face.West
-                    Directions.Up -> Face.North
-                    Directions.Down -> Face.South
+                    Directions.Right -> FaceType.East
+                    Directions.Left -> FaceType.West
+                    Directions.Up -> FaceType.North
+                    Directions.Down -> FaceType.South
                 }
             }
-            Face.West -> {
+            FaceType.West -> {
                 when (direction) {
-                    Directions.Right -> Face.Obverse
-                    Directions.Left -> Face.Reverse
-                    Directions.Up -> Face.North
-                    Directions.Down -> Face.South
+                    Directions.Right -> FaceType.Obverse
+                    Directions.Left -> FaceType.Reverse
+                    Directions.Up -> FaceType.North
+                    Directions.Down -> FaceType.South
                 }
             }
-            Face.Reverse -> {
+            FaceType.Reverse -> {
                 when (direction) {
-                    Directions.Right -> Face.West
-                    Directions.Left -> Face.East
-                    Directions.Up -> Face.North
-                    Directions.Down -> Face.South
+                    Directions.Right -> FaceType.West
+                    Directions.Left -> FaceType.East
+                    Directions.Up -> FaceType.North
+                    Directions.Down -> FaceType.South
                 }
             }
-            Face.East -> {
+            FaceType.East -> {
                 when (direction) {
-                    Directions.Right -> Face.Reverse
-                    Directions.Left -> Face.Obverse
-                    Directions.Up -> Face.North
-                    Directions.Down -> Face.South
+                    Directions.Right -> FaceType.Reverse
+                    Directions.Left -> FaceType.Obverse
+                    Directions.Up -> FaceType.North
+                    Directions.Down -> FaceType.South
                 }
             }
         }

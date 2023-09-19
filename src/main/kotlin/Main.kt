@@ -4,7 +4,7 @@ import processing.core.PApplet
 import processing.core.PConstants
 import processing.core.PVector
 
-typealias Position = Pair<IntVector, Cube.Face>
+typealias Position = Pair<IntVector, Cube.FaceType>
 
 var app = Main()
 
@@ -16,6 +16,7 @@ class Main: PApplet() {
 
     private lateinit var cube: Cube
     private lateinit var planet: Planet
+    private lateinit var planetSurface: PlanetSurface
 
     override fun settings() {
         size(900, 600)
@@ -28,16 +29,19 @@ class Main: PApplet() {
         imageMode(PConstants.CENTER)
         surface.setTitle("Experiment")
 
-        cube = Cube()
-        planet = Planet()
+        cube = Cube(16)
+        planet = Planet(16)
+        planetSurface = PlanetSurface(16, Cube(16))
     }
 
     override fun draw() {
         background(0)
 
-        planet.display(PVector(width / 2f, height / 2f))
-        planet.update()
+//        planet.display(PVector(width / 2f, height / 2f))
+//        planet.update()
 //        cube.display(PVector(width / 2f, height /2f))
+        planetSurface.update()
+        planetSurface.display(PVector(width / 2f, height / 2f))
     }
 }
 
