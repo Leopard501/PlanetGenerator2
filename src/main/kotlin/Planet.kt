@@ -19,6 +19,7 @@ class Planet(private val size: Int) {
         if (center >= size * 4) center = 0
 
         planetSurface.update()
+        planetSurface.updateCube()
     }
 
     fun display(position: PVector) {

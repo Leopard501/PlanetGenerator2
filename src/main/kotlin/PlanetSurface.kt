@@ -1,14 +1,41 @@
 package main.kotlin
 
 import processing.core.PApplet
+import processing.core.PApplet.map
+import processing.core.PVector
 import java.awt.Color
 import java.util.function.Consumer
 import kotlin.math.*
 
-@Suppress("NAME_SHADOWING")
 class PlanetSurface(private val size: Int, private val cube: Cube) {
 
-    class Pixel(private val position: Position, private val surface: PlanetSurface) {
+    class Pixel(val position: Position, private val surface: PlanetSurface) {
+
+        abstract class LiquidColor() {
+            abstract fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int
+        }
+
+        class LiquidColorByTemperature(private val coldColor: Color, private val hotColor: Color) : LiquidColor() {
+            override fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int {
+                return mapColor(coldColor, hotColor, liquid.minTemp.toFloat(), liquid.maxTemp.toFloat(), temperature.toFloat()).rgb
+            }
+        }
+
+        class LiquidColorByDepth(private val deepColor: Color, private val shallowColor: Color) : LiquidColor() {
+            override fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int {
+                return mapColor(shallowColor, deepColor, 0f, MAX_ELEVATION * 2, depth).rgb
+            }
+        }
+
+        class LiquidColorByBoth(
+            private val hotDeepColor: Color, private val hotShallowColor: Color,
+            private val coldDeepColor: Color, private val coldShallowColor: Color): LiquidColor() {
+            override fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int {
+                val hotColor = mapColor(hotShallowColor, hotDeepColor, 0f, MAX_ELEVATION * 2, depth)
+                val coldColor = mapColor(coldShallowColor, coldDeepColor, 0f, MAX_ELEVATION * 2, depth)
+                return mapColor(coldColor, hotColor, liquid.minTemp.toFloat(), liquid.maxTemp.toFloat(), temperature.toFloat()).rgb
+            }
+        }
 
         companion object {
             const val MIN_ELEVATION = -5f
@@ -34,18 +61,20 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         }
 
         enum class Liquid(
-            val lowColor: Color, val highColor: Color,
+            val color: LiquidColor,
             val minTemp: Int, val maxTemp: Int,
             val onCool: Consumer<Pixel>, val onHeat: Consumer<Pixel>) {
 
-            None(Color.BLACK, Color.WHITE, 0, 0, {}, {}),
-            MoltenRock(Color(0xFF2F00), Color(0xFF8000), 1000, 10000,
+            None(LiquidColorByDepth(Color.WHITE, Color.BLACK), 0, 1, {}, {}),
+            MoltenRock(LiquidColorByTemperature(Color(0xFF2F00), Color(0xFF8000)), 1000, 10000,
                 { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None; it.addGas("rock") }),
-            SaltWater(Color(0x4242CC), Color(0x266fff), 0, 100,
+            SaltWater(LiquidColorByDepth(Color(0x4242CC), Color(0x266fff)), 0, 100,
                 { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
-            FreshWater(Color(0x38657C), Color(0x3E8686), 0, 100,
+            FreshWater(LiquidColorByBoth(
+                Color(0x38657C), Color(0x3E8686), Color(0x1F335E), Color(0x477288)
+            ), 0, 100,
                 { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
-            MoltenMetal(Color(0xFF8000), Color(0xFFE285), 2000, 20000,
+            MoltenMetal(LiquidColorByTemperature(Color(0xFF8000), Color(0xFFE285)), 2000, 20000,
                 { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; it.addGas("metal") })
         }
 
@@ -94,12 +123,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         // todo: more complicated
         fun getColor(): Int {
             return if (coating != Coating.None) coating.highColor.rgb
-            else if (liquid != Liquid.None && liquidDepth > 0) mapColor(
-                liquid.lowColor, liquid.highColor,
-                liquidDepth * 25.5f, 255f).rgb
+            else if (liquid != Liquid.None && liquidDepth > 0) liquid.color.getColor(liquid, temperature, liquidDepth)
             else mapColor(
                 material.lowColor, material.highColor,
-                (elevation + 5) * 25.5f, 255f).rgb
+                MIN_ELEVATION, MAX_ELEVATION, elevation).rgb
         }
 
         private fun getNeighbors(): Array<Pixel> {
@@ -111,8 +138,9 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             )
         }
 
-        private fun getLiquidHeight(other: Pixel): Float {
-            return if (other != this) elevation + liquidDepth else elevation
+        private fun getLiquidHeight(center: Pixel): Float {
+            // I'm not sure if combining elevation and depth for center is better
+            return if (center != this) elevation + liquidDepth else elevation
         }
 
         fun update() {
@@ -139,8 +167,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             } + Float.MAX_VALUE
             var thisDepth = liquidDepth
             for (i in 0 until 5) {
-                neighbors[i].liquidDepth += min(thisDepth, diffs[i]) / (i + 1)
-                thisDepth -= diffs[i]
+                val change = min(thisDepth, diffs[i]) / (i + 1)
+                neighbors[i].liquidDepth += change
+                liquidDepth -= change
+                thisDepth -= diffs[i] // or change, dunno which is better
                 if (thisDepth <= 0) break
             }
         }
@@ -154,33 +184,42 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     private val reverse = Array(size * size) { i -> Pixel(Pair(positionFromIndex(i), Cube.FaceType.Reverse), this) }
 
     private val pixels = arrayOf(*north, *south, *east, *west, *obverse, *reverse)
+    private val equatorialPixels = arrayOf(*east, *west, *obverse, *reverse)
+    private val polarPixels = arrayOf(*north, *south)
 
     init {
         for (p in pixels) {
             p.material = Pixel.Material.Metamorphic
-            p.elevation = app.random(Pixel.MIN_ELEVATION, Pixel.MAX_ELEVATION)
+            p.elevation = app.random(-0.5f, 0.5f)
             p.liquid = Pixel.Liquid.FreshWater
-            p.liquidDepth = if (app.random(10f) < 1f) app.random(10f) else 0f
+            p.liquidDepth = app.random(2f)
         }
 
-//        for (i in 0 until 20) {
-//            placeRoundFeature(cube.randomPosition(), app.random(-5f, 6f), app.random(0.5f, 2f))
-//        }
+        for (p in equatorialPixels) {
+            p.temperature = (((size / 2) - (p.position.first.y - size / 2).absoluteValue) + 2) * 10
+        }
+        for (p in polarPixels) {
+            val normal = PVector((p.position.first.x - size / 2).toFloat(), (p.position.first.y - size / 2).toFloat())
+            p.temperature = map(sqrt(normal.x.pow(2) + normal.y.pow(2)), sqrt(128f), 0f, 20f, -20f).toInt()
+        }
+
+        for (i in 0 until 40) {
+            placeRoundFeature(cube.randomPosition(), app.random(-5f, 6f), app.random(0.5f, 2f))
+        }
     }
 
     companion object {
-        fun mapColor(a: Color, b: Color, map: Float, alpha: Float): Color {
-            var alpha = alpha
-            var r = PApplet.map(map.coerceAtMost(255f), 0f, 255f, a.red.toFloat(), b.red.toFloat())
-            var g = PApplet.map(map.coerceAtMost(255f), 0f, 255f, a.green.toFloat(), b.green.toFloat())
-            var bl = PApplet.map(map.coerceAtMost(255f), 0f, 255f, a.blue.toFloat(), b.blue.toFloat())
+        fun mapColor(a: Color, b: Color, low: Float, high: Float, map: Float): Color {
+            var r = PApplet.map(map, low, high, a.red.toFloat(), b.red.toFloat())
+            var g = PApplet.map(map, low, high, a.green.toFloat(), b.green.toFloat())
+            var bl = PApplet.map(map, low, high, a.blue.toFloat(), b.blue.toFloat())
 
-            r = PApplet.map(r, 0f, 255f, 0f, 1f)
-            g = PApplet.map(g, 0f, 255f, 0f, 1f)
-            bl = PApplet.map(bl, 0f, 255f, 0f, 1f)
-            alpha = PApplet.map(alpha, 0f, 255f, 0f, 1f)
+            // Color expects a range of 0 to 1
+            r = PApplet.map(r, 0f, 255f, 0f, 1f).coerceIn(0f, 1f)
+            g = PApplet.map(g, 0f, 255f, 0f, 1f).coerceIn(0f, 1f)
+            bl = PApplet.map(bl, 0f, 255f, 0f, 1f).coerceIn(0f, 1f)
 
-            return Color(r, g, bl, alpha)
+            return Color(r, g, bl)
         }
     }
 
@@ -231,7 +270,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             for (y in -radius .. radius) {
                 val distance = sqrt(x.toFloat().pow(2) + y.toFloat().pow(2))
                 val change = (1 - distance.coerceAtMost(height.absoluteValue) / height.absoluteValue) * height
-                pixelAtPosition(cube.changePositionCubical(position, IntVector(x, y))).changeElevation(change)
+                pixelAtPosition(cube.changePositionSpherical(position, IntVector(x, y))).changeElevation(change)
             }
         }
     }
