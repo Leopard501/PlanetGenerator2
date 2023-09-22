@@ -121,30 +121,30 @@ class Cube(private val size: Int) {
         )
     }
 
-    fun changePosition(position: Position, change: IntVector): Position {
+    fun changePositionSpherical(position: Position, change: IntVector): Position {
         var pos = position.copy()
         if (change.x < 0) {
             for (i in change.x until  0) {
-                pos = changePosition(pos, Directions.Left)
+                pos = changePositionSpherical(pos, Directions.Left)
             }
         } else if (change.x > 0) {
             for (i in 0 until  change.x) {
-                pos = changePosition(pos, Directions.Right)
+                pos = changePositionSpherical(pos, Directions.Right)
             }
         }
         if (change.y < 0) {
             for (i in change.y until  0) {
-                pos = changePosition(pos, Directions.Up)
+                pos = changePositionSpherical(pos, Directions.Up)
             }
         } else if (change.y > 0) {
             for (i in 0 until  change.y) {
-                pos = changePosition(pos, Directions.Down)
+                pos = changePositionSpherical(pos, Directions.Down)
             }
         }
         return pos
     }
 
-    fun changePosition(position: Position, direction: Directions): Position {
+    fun changePositionSpherical(position: Position, direction: Directions): Position {
         if (position.second == FaceType.North || position.second == FaceType.South) {
             val quadrant = getQuadrant(position.first, direction)
             return when (direction) {
@@ -241,6 +241,96 @@ class Cube(private val size: Int) {
                         position.second)
                     }
             }
+        } else {
+            // Right across edge
+            if (position.first.x == size - 1 && direction == Directions.Right) {
+                return Pair(IntVector(0, position.first.y), position.second + direction)
+            } // Left across edge
+            else if (position.first.x == 0 && direction == Directions.Left) {
+                return Pair(IntVector(size - 1, position.first.y), position.second + direction)
+            } // Up across edge
+            else if (position.first.y == 0 && direction == Directions.Up) {
+                return Pair(
+                    when (position.second) {
+                        FaceType.Obverse -> IntVector(position.first.x, size - 1)
+                        FaceType.East -> IntVector(size - 1, size - 1 - position.first.x)
+                        FaceType.Reverse -> IntVector(size - 1 - position.first.x, 0)
+                        FaceType.West -> IntVector(0, position.first.x)
+                        else -> throw RuntimeException("Should not be possible")
+                    },
+                    position.second + direction
+                )
+            } // Down across edge
+            else if (position.first.y == size - 1 && direction == Directions.Down) {
+                return Pair(
+                    when (position.second) {
+                        FaceType.Obverse -> IntVector(position.first.x, 0)
+                        FaceType.East -> IntVector(size - 1, position.first.x)
+                        FaceType.Reverse -> IntVector(size - 1 - position.first.x, size - 1)
+                        FaceType.West -> IntVector(0, size - 1 - position.first.x)
+                        else -> throw RuntimeException("Should not be possible")
+                    },
+                    position.second + direction
+                )
+            } // Within board
+            else return Pair(position.first + direction, position.second)
+        }
+    }
+
+    fun changePositionCubical(position: Position, change: IntVector): Position {
+        var pos = position.copy()
+        if (change.x < 0) {
+            for (i in change.x until  0) {
+                pos = changePositionCubical(pos, Directions.Left)
+            }
+        } else if (change.x > 0) {
+            for (i in 0 until  change.x) {
+                pos = changePositionCubical(pos, Directions.Right)
+            }
+        }
+        if (change.y < 0) {
+            for (i in change.y until  0) {
+                pos = changePositionCubical(pos, Directions.Up)
+            }
+        } else if (change.y > 0) {
+            for (i in 0 until  change.y) {
+                pos = changePositionCubical(pos, Directions.Down)
+            }
+        }
+        return pos
+    }
+
+    fun changePositionCubical(position: Position, direction: Directions): Position {
+        if (position.second == FaceType.North) {
+            // Right across edge
+            return if (position.first.x == size - 1 && direction == Directions.Right) {
+                Pair(IntVector(size - 1 - position.first.y, 0), position.second + direction)
+            } // Left across edge
+            else if (position.first.x == 0 && direction == Directions.Left) {
+                Pair(IntVector(position.first.y, 0), position.second + direction)
+            } // Up across edge
+            else if (position.first.y == 0 && direction == Directions.Up) {
+                Pair(IntVector(size - 1 - position.first.x, size - 1), position.second + direction)
+            } // Down across edge
+            else if (position.first.y == size - 1 && direction == Directions.Down) {
+                Pair(IntVector(position.first.x, size - 1), position.second + direction)
+            } // Within board
+            else Pair(position.first + direction, position.second)
+        } else if (position.second == FaceType.South) {
+            // Right across edge
+            return if (position.first.x == size - 1 && direction == Directions.Right) {
+                Pair(IntVector(position.first.y, size - 1), position.second + direction)
+            } // Left across edge
+            else if (position.first.x == 0 && direction == Directions.Left) {
+                Pair(IntVector(size - 1 - position.first.y, size - 1), position.second + direction)
+            } // Up across edge
+            else if (position.first.y == 0 && direction == Directions.Up) {
+                Pair(IntVector(position.first.x, size - 1), position.second + direction)
+            } // Down across edge
+            else if (position.first.y == size - 1 && direction == Directions.Down) {
+                Pair(IntVector(size - 1 - position.first.x, size - 1), position.second + direction)
+            } // Within board
+            else Pair(position.first + direction, position.second)
         } else {
             // Right across edge
             if (position.first.x == size - 1 && direction == Directions.Right) {

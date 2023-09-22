@@ -14,7 +14,7 @@ class Planet(private val size: Int) {
     private var center = size + size / 2
 
     fun update() {
-        if (app.frameCount % 10 != 0) return
+        if (app.frameCount % 30 != 0) return
         center++
         if (center >= size * 4) center = 0
 
@@ -22,7 +22,9 @@ class Planet(private val size: Int) {
     }
 
     fun display(position: PVector) {
-        app.image(createImage(), position.x, position.y, scale * size, scale * size)
+//        app.image(createImage(), position.x, position.y, scale * size, scale * size)
+
+        cube.display(position)
     }
 
     private fun createImage(): PImage {
