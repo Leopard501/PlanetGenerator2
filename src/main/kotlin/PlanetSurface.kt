@@ -69,7 +69,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             MoltenRock(LiquidColorByTemperature(Color(0xFF2F00), Color(0xFF8000)), 1000, 10000,
                 { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None; it.addGas("rock") }),
             SaltWater(LiquidColorByBoth(
-                Color(0x18376C), Color(80, 160, 190), Color(5, 10, 20), Color(25, 35, 40)
+                Color(20, 45, 105), Color(60, 140, 180), Color(5, 20, 40), Color(40, 60, 90)
             ), 0, 100,
                 { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
             FreshWater(LiquidColorByBoth(
@@ -201,7 +201,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         for (p in pixels) {
             p.material = Pixel.Material.Metamorphic
             p.elevation = app.random(-0.5f, 0.5f)
-            p.liquid = Pixel.Liquid.FreshWater
+            p.liquid = Pixel.Liquid.SaltWater
             p.liquidDepth = app.random(2f)
         }
 
