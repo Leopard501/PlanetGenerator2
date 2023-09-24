@@ -133,7 +133,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         fun replaceLiquidWithCoating(coating: Coating) {
             this.coating = coating
-            coatingThickness = liquidDepth
+            coatingThickness += liquidDepth
             liquidDepth = 0f
             liquid = Liquid.None
         }
@@ -223,7 +223,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         /**
          * Simulates temperature and changes state.
-         * todo: better temperature simulation
          */
         private fun updateTemperature() {
             temperature = temperature + solarStrength() * surface.solarEnergy - temperature * surface.heatRadiation
@@ -250,7 +249,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         /**
          * Simulates movement of liquids.
-         * todo: interactions between different fluids
          */
         private fun liquidFlow() {
             if (liquidDepth <= 0 || liquid == Liquid.None) {
@@ -271,7 +269,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 val change = min(thisDepth, diffs[i]) / (i + 1)
                 neighbors[i].addLiquid(liquid, change)
                 liquidDepth -= change
-                thisDepth -= diffs[i] // or change, dunno which is better
+                // diffs[i] is smoother than change
+                thisDepth -= diffs[i]
                 if (thisDepth <= 0) break
             }
         }
