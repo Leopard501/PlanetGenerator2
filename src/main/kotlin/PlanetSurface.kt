@@ -228,8 +228,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             temperature = temperature + solarEnergy() * 5f - temperature * 0.012f
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
-            if (temperature > liquid.maxTemp) liquid.onHeat.accept(this)
-            if (temperature < liquid.minTemp) liquid.onCool.accept(this)
+            if (temperature > liquid.maxTemp && liquidDepth > 0) liquid.onHeat.accept(this)
+            if (temperature < liquid.minTemp && liquidDepth > 0) liquid.onCool.accept(this)
             if (temperature > material.maxTemp) material.onHeat.accept(this)
         }
 
