@@ -103,11 +103,11 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None; it.addGas("rock") }),
             SaltWater(LiquidColorByBoth(
                 Color(20, 45, 105), Color(60, 140, 180), Color(5, 20, 40), Color(40, 60, 90)
-            ), 0, 100,
+            ), 300, 400,
                 { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
             FreshWater(LiquidColorByBoth(
                 Color(0x274E62), Color(0x3E8686), Color(0x1F335E), Color(0x477288)
-            ), 0, 100,
+            ), 300, 400,
                 { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
             MoltenMetal(LiquidColorByTemperature(Color(0xFF8000), Color(0xFFE285)), 2000, 20000,
                 { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; it.addGas("metal") })
@@ -115,7 +115,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         enum class Coating(val lowColor: Color, val highColor: Color, val maxTemp: Int, val onHeat: Consumer<Pixel>) {
             None(Color.BLACK, Color.WHITE, 0, {}),
-            Ice(Color(0xD6EFFF), Color(0xe5e3df), 0,
+            Ice(Color(0xD6EFFF), Color(0xe5e3df), 300,
                 { it.coating = None; it.addLiquid(Liquid.FreshWater) }),
             Obsidian(Color(0x160A23), Color(0x351F4F), 1000,
                 { it.coating = None; it.addLiquid(Liquid.MoltenRock) }),
@@ -151,10 +151,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         }
 
-        fun increaseTemp() {
-            temperature++
-        }
-
         /**
          * Color is prioritized: coating > liquid > surface.
          *
@@ -163,7 +159,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         fun getColor(): Int {
             return if (coating != Coating.None) mapColor(
                 coating.highColor, coating.lowColor,
-                coating.maxTemp.toFloat() - 100, coating.maxTemp.toFloat(), temperature
+                0f, coating.maxTemp.toFloat(), temperature
             ).rgb
             else if (liquid != Liquid.None && liquidDepth > 0) liquid.color.getColor(liquid, temperature, liquidDepth)
             else mapColor(
@@ -217,7 +213,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 // Linear
                 surface.size / 2 - (position.first.y + odd - surface.size / 2).absoluteValue + poleEdge
             }
-            val angle = map(distance, 0f, surface.size / 2f + poleEdge, HALF_PI, PI)
+            val angle = map(distance, surface.size / 2f - odd + poleEdge, 0f, HALF_PI, PI)
+//            println("poleEdge: $poleEdge, distance: $distance, angle: " + (angle / PI))
             return sin(angle)
         }
 
@@ -226,7 +223,9 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          * todo: better temperature simulation
          */
         private fun updateTemperature() {
-            temperature = map(solarEnergy(), 0f, 1f, 90f, -10f)
+//            temperature = map(solarEnergy(), 0f, 1f, 90f, -10f)
+
+            temperature = temperature + solarEnergy() * 5f - temperature * 0.012f
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
             if (temperature > liquid.maxTemp) liquid.onHeat.accept(this)
@@ -272,6 +271,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
     init {
         for (p in pixels) {
+            p.temperature = 350f
             p.material = Pixel.Material.Metamorphic
             p.elevation = app.random(-0.5f, 0.5f)
             p.liquid = Pixel.Liquid.SaltWater
@@ -285,14 +285,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
     companion object {
         /**
-         * Maps a value between a range to a range of two colors
-         *
-         * @param a low color
-         * @param b high color
-         * @param low low value
-         * @param high high value
-         * @param value value to map
-         * @return resulting color
+         * Maps a value between a range to a color between two colors
          */
         fun mapColor(a: Color, b: Color, low: Float, high: Float, value: Float): Color {
             var r = map(value, low, high, a.red.toFloat(), b.red.toFloat())
