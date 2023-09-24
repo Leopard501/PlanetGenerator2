@@ -8,10 +8,25 @@ import java.awt.Color
 import java.util.function.Consumer
 import kotlin.math.*
 
+/**
+ * The simulated surface of a planet
+ *
+ * @param size size of each face in pixels
+ * @param cube cube this surface will be stretched over
+ */
 class PlanetSurface(private val size: Int, private val cube: Cube) {
 
+    /**
+     * A simulated pixel on the surface of a planet
+     *
+     * @param position what face it is located on and where
+     * @param surface the surface this pixel belongs to
+     */
     class Pixel(private val position: Position, private val surface: PlanetSurface) {
 
+        /**
+         * Class that contains a function describing how to color a liquid based on depth and temperature
+         */
         abstract class LiquidColor() {
             abstract fun getColor(liquid: Liquid, temperature: Float, depth: Float): Int
         }
@@ -43,6 +58,14 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             const val MAX_ELEVATION = 5f
         }
 
+        /**
+         * The liquid layer of the pixel
+         *
+         * @param lowColor color at low elevation
+         * @param highColor color at high elevation
+         * @param maxTemp maximum stable temperature
+         * @param onHeat function describing what happens above max temperature, UNFINISHED
+         */
         enum class Material(val lowColor: Color, val highColor: Color, val maxTemp: Int, val onHeat: Consumer<Pixel>) {
             Unset(Color.BLACK, Color.WHITE, 0, {}),
             Igneous(Color(0x1b1b1b), Color(0x3c3c50), 2000,
@@ -61,6 +84,15 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 { it.meltRock() })
         }
 
+        /**
+         * The liquid layer of the pixel
+         *
+         * @param color class to get the color based on temperature and depth
+         * @param minTemp minimum stable temperature
+         * @param maxTemp maximum stable temperature
+         * @param onCool function describing what happens below min temperature, UNFINISHED
+         * @param onHeat function describing what happens above max temperature, UNFINISHED
+         */
         enum class Liquid(
             val color: LiquidColor,
             val minTemp: Int, val maxTemp: Int,
@@ -123,16 +155,25 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             temperature++
         }
 
+        /**
+         * Color is prioritized: coating > liquid > surface.
+         *
+         * @return the color of this pixel in rgb
+         */
         fun getColor(): Int {
             return if (coating != Coating.None) mapColor(
                 coating.highColor, coating.lowColor,
-                coating.maxTemp.toFloat() - 100, coating.maxTemp.toFloat(), temperature.toFloat()).rgb
+                coating.maxTemp.toFloat() - 100, coating.maxTemp.toFloat(), temperature
+            ).rgb
             else if (liquid != Liquid.None && liquidDepth > 0) liquid.color.getColor(liquid, temperature, liquidDepth)
             else mapColor(
                 material.lowColor, material.highColor,
                 MIN_ELEVATION, MAX_ELEVATION, elevation).rgb
         }
 
+        /**
+         * @return an array 4 touching pixels, ordered clockwise from up
+         */
         private fun getNeighbors(): Array<Pixel> {
             return arrayOf(
                 surface.pixelAtPosition(surface.cube.changePositionCubical(position, Cube.Directions.Up)),
@@ -142,9 +183,15 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             )
         }
 
-        private fun getLiquidHeight(center: Pixel): Float {
-            // I'm not sure if combining elevation and depth for center is better
-            return if (center != this) elevation + liquidDepth else elevation
+        /**
+         * If this is the checking pixel, only use elevation for calculation,
+         * I'm not sure if that's better than just not doing that, but it works for now
+         *
+         * @param checkingPixel the pixel that this pixel is the neighbor of
+         * @return the liquid height for purposes of water sharing
+         */
+        private fun getLiquidHeight(checkingPixel: Pixel): Float {
+            return if (checkingPixel != this) elevation + liquidDepth else elevation
         }
 
         fun update() {
@@ -152,11 +199,14 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             updateLiquidFlow()
         }
 
-        /*
+        /**
+         * Calculates energy received by latitude
          * Two different systems for polar faces and equatorial faces,
          * works for now; might change based on how the cube is translated to a sphere.
+         *
+         * @return solar energy multiplier: 1 at equator, 0 at poles
          */
-        private fun solarHeat(): Float {
+        private fun solarEnergy(): Float {
             val poleEdge = sqrt((surface.size / 2f).pow(2) * 2)
             val odd = if (surface.size % 2 == 0) 0.5f else 0f
             val distance = if (position.second == Cube.FaceType.North || position.second == Cube.FaceType.South) {
@@ -171,8 +221,12 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             return sin(angle)
         }
 
+        /**
+         * Simulates temperature and changes state.
+         * todo: better temperature simulation
+         */
         private fun updateTemperature() {
-            temperature = map(solarHeat(), 0f, 1f, 90f, -10f)
+            temperature = map(solarEnergy(), 0f, 1f, 90f, -10f)
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
             if (temperature > liquid.maxTemp) liquid.onHeat.accept(this)
@@ -180,6 +234,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             if (temperature > material.maxTemp) material.onHeat.accept(this)
         }
 
+        /**
+         * Simulates movement of liquids.
+         * todo: interactions between different fluids
+         */
         private fun updateLiquidFlow() {
             if (liquidDepth <= 0) return
             val neighbors = getNeighbors() + this
@@ -226,10 +284,20 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     }
 
     companion object {
-        fun mapColor(a: Color, b: Color, low: Float, high: Float, map: Float): Color {
-            var r = map(map, low, high, a.red.toFloat(), b.red.toFloat())
-            var g = map(map, low, high, a.green.toFloat(), b.green.toFloat())
-            var bl = map(map, low, high, a.blue.toFloat(), b.blue.toFloat())
+        /**
+         * Maps a value between a range to a range of two colors
+         *
+         * @param a low color
+         * @param b high color
+         * @param low low value
+         * @param high high value
+         * @param value value to map
+         * @return resulting color
+         */
+        fun mapColor(a: Color, b: Color, low: Float, high: Float, value: Float): Color {
+            var r = map(value, low, high, a.red.toFloat(), b.red.toFloat())
+            var g = map(value, low, high, a.green.toFloat(), b.green.toFloat())
+            var bl = map(value, low, high, a.blue.toFloat(), b.blue.toFloat())
 
             // Color expects a range of 0 to 1
             r = map(r, 0f, 255f, 0f, 1f).coerceIn(0f, 1f)
@@ -240,6 +308,9 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         }
     }
 
+    /**
+     * Draws pixels onto the faces of the cube
+     */
     fun updateCube() {
         for (f in Cube.FaceType.values()) {
             for (x in 0 until size) {
@@ -263,6 +334,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         pixels.forEach { p -> p.update() }
     }
 
+    /**
+     * @param i index of pixel in face array
+     * @return position of pixel on face
+     */
     private fun positionFromIndex(i: Int): IntVector {
         val x = i % size
         val y = (i - x) / size
@@ -270,6 +345,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         return IntVector(x, y)
     }
 
+    /**
+     * @param position x, y and face of pixel
+     * @return the pixel that exists at that location
+     */
     private fun pixelAtPosition(position: Position): Pixel {
         return when (position.second) {
             Cube.FaceType.North -> north[position.first.x + position.first.y * size]
@@ -281,6 +360,14 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         }
     }
 
+    /**
+     * Places a circular feature.
+     * NOTE: will get cut off if height goes beyond the acceptable elevation range
+     *
+     * @param position where should the center of the feature be
+     * @param height how to change the elevation of the center pixel.
+     * @param falloff how much should the change decrease per pixel away from the center
+     */
     private fun placeRoundFeature(position: Position, height: Float, falloff: Float) {
         val radius: Int = ceil((height.absoluteValue / falloff)).toInt()
         for (x in -radius .. radius) {
