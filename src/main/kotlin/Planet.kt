@@ -14,7 +14,7 @@ class Planet(private val size: Int) {
     private var center = size + size / 2
 
     fun update() {
-        if (app.frameCount % 30 != 0) return
+//        if (app.frameCount % 30 != 0) return
         center++
         if (center >= size * 4) center = 0
 

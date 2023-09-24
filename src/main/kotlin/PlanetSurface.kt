@@ -226,8 +226,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          * todo: better temperature simulation
          */
         private fun updateTemperature() {
-//            temperature = map(solarEnergy(), 0f, 1f, 90f, -10f)
-
             temperature = temperature + solarStrength() * surface.solarEnergy - temperature * surface.heatRadiation
             heatFlow()
 
@@ -271,12 +269,21 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             var thisDepth = liquidDepth
             for (i in 0 until 5) {
                 val change = min(thisDepth, diffs[i]) / (i + 1)
-                neighbors[i].liquidDepth += change
-                if (change > 0) neighbors[i].liquid = liquid
+                neighbors[i].addLiquid(liquid, change)
                 liquidDepth -= change
                 thisDepth -= diffs[i] // or change, dunno which is better
                 if (thisDepth <= 0) break
             }
+        }
+
+        private fun addLiquid(type: Liquid, amount: Float) {
+            if (type.ordinal == liquid.ordinal || liquid == Liquid.None) {
+                liquidDepth += amount
+                liquid = type
+                return
+            }
+
+            liquidInteraction(liquid, liquidDepth, type, amount).accept(this)
         }
 
         /**
@@ -312,7 +319,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         for (p in pixels) {
             p.temperature = 350f
             p.material = Pixel.Material.Metamorphic
-//            p.elevation = app.random(-0.2f, 0.2f)
+            p.elevation = app.random(-0.2f, 0.2f)
             p.liquid = Pixel.Liquid.SaltWater
             p.liquidDepth = app.random(2f)
         }
