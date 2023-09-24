@@ -1,6 +1,7 @@
 package main.kotlin
 
-import processing.core.PApplet
+import processing.core.PApplet.HALF_PI
+import processing.core.PApplet.PI
 import processing.core.PApplet.map
 import processing.core.PVector
 import java.awt.Color
@@ -12,17 +13,17 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     class Pixel(private val position: Position, private val surface: PlanetSurface) {
 
         abstract class LiquidColor() {
-            abstract fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int
+            abstract fun getColor(liquid: Liquid, temperature: Float, depth: Float): Int
         }
 
         class LiquidColorByTemperature(private val coldColor: Color, private val hotColor: Color) : LiquidColor() {
-            override fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int {
+            override fun getColor(liquid: Liquid, temperature: Float, depth: Float): Int {
                 return mapColor(coldColor, hotColor, liquid.minTemp.toFloat(), liquid.maxTemp.toFloat(), temperature.toFloat()).rgb
             }
         }
 
         class LiquidColorByDepth(private val deepColor: Color, private val shallowColor: Color) : LiquidColor() {
-            override fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int {
+            override fun getColor(liquid: Liquid, temperature: Float, depth: Float): Int {
                 return mapColor(shallowColor, deepColor, 0f, MAX_ELEVATION * 2, depth).rgb
             }
         }
@@ -30,7 +31,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         class LiquidColorByBoth(
             private val hotDeepColor: Color, private val hotShallowColor: Color,
             private val coldDeepColor: Color, private val coldShallowColor: Color): LiquidColor() {
-            override fun getColor(liquid: Liquid, temperature: Int, depth: Float): Int {
+            override fun getColor(liquid: Liquid, temperature: Float, depth: Float): Int {
                 val hotColor = mapColor(hotShallowColor, hotDeepColor, 0f, MAX_ELEVATION * 2, depth)
                 val coldColor = mapColor(coldShallowColor, coldDeepColor, 0f, MAX_ELEVATION * 2, depth)
                 return mapColor(coldColor, hotColor, liquid.minTemp.toFloat(), liquid.maxTemp.toFloat(), temperature.toFloat()).rgb
@@ -90,7 +91,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 { it.coating = None; })
         }
 
-        var temperature = 0
+        var temperature = 0f
         var elevation = 0f
         var liquidDepth = 0f
         var material = Material.Unset
@@ -151,13 +152,27 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             updateLiquidFlow()
         }
 
-        private fun updateTemperature() {
-            temperature = if (position.second == Cube.FaceType.North || position.second == Cube.FaceType.South) {
-                val normal = PVector((position.first.x - surface.size / 2).toFloat(), (position.first.y - surface.size / 2).toFloat())
-                map(sqrt(normal.x.pow(2) + normal.y.pow(2)), sqrt(128f), 0f, 20f, -20f).toInt()
+        /*
+         * Two different systems for polar faces and equatorial faces,
+         * works for now; might change based on how the cube is translated to a sphere.
+         */
+        private fun solarHeat(): Float {
+            val poleEdge = sqrt((surface.size / 2f).pow(2) * 2)
+            val odd = if (surface.size % 2 == 0) 0.5f else 0f
+            val distance = if (position.second == Cube.FaceType.North || position.second == Cube.FaceType.South) {
+                // Circular
+                val normal = PVector(position.first.x - surface.size / 2 + odd, position.first.y - surface.size / 2 + odd)
+                sqrt(normal.x.pow(2) + normal.y.pow(2))
             } else {
-                (((surface.size / 2) - (position.first.y - surface.size / 2).absoluteValue) + 2) * 10
+                // Linear
+                surface.size / 2 - (position.first.y + odd - surface.size / 2).absoluteValue + poleEdge
             }
+            val angle = map(distance, 0f, surface.size / 2f + poleEdge, HALF_PI, PI)
+            return sin(angle)
+        }
+
+        private fun updateTemperature() {
+            temperature = map(solarHeat(), 0f, 1f, 90f, -10f)
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
             if (temperature > liquid.maxTemp) liquid.onHeat.accept(this)
