@@ -192,7 +192,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         fun update() {
             updateTemperature()
-            updateLiquidFlow()
+            liquidFlow()
         }
 
         /**
@@ -202,7 +202,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          *
          * @return solar energy multiplier: 1 at equator, 0 at poles
          */
-        private fun solarEnergy(): Float {
+        private fun solarStrength(): Float {
             val poleEdge = sqrt((surface.size / 2f).pow(2) * 2)
             val odd = if (surface.size % 2 == 0) 0.5f else 0f
             val distance = if (position.second == Cube.FaceType.North || position.second == Cube.FaceType.South) {
@@ -225,7 +225,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         private fun updateTemperature() {
 //            temperature = map(solarEnergy(), 0f, 1f, 90f, -10f)
 
-            temperature = temperature + solarEnergy() * 5f - temperature * 0.012f
+            temperature = temperature + solarStrength() * surface.solarEnergy - temperature * surface.heatRadiation
+            heatFlow()
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
             if (temperature > liquid.maxTemp && liquidDepth > 0) liquid.onHeat.accept(this)
@@ -234,10 +235,29 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         }
 
         /**
+         * Simulates movement of heat
+         */
+        private fun heatFlow() {
+            @Suppress("KotlinConstantConditions")
+            if (surface.heatConductivity <= 0f) return
+//            val change = temperature / (4 + 1 / heatConductivity)
+//            for (n in getNeighbors()) {
+//                n.temperature += change
+//            }
+//            temperature -= change * 4
+
+            val oldTemp = temperature
+            for (n in getNeighbors()) {
+                temperature += n.temperature / (4 + 1 / surface.heatConductivity)
+            }
+            temperature -= (oldTemp / (4 + 1 / surface.heatConductivity)) * 4
+        }
+
+        /**
          * Simulates movement of liquids.
          * todo: interactions between different fluids
          */
-        private fun updateLiquidFlow() {
+        private fun liquidFlow() {
             if (liquidDepth <= 0) return
             val neighbors = getNeighbors() + this
 
@@ -269,11 +289,15 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     private val equatorialPixels = arrayOf(*east, *west, *obverse, *reverse)
     private val polarPixels = arrayOf(*north, *south)
 
+    private val solarEnergy = 5f
+    private val heatRadiation = 0.0115f
+    private val heatConductivity = 0.5f
+
     init {
         for (p in pixels) {
             p.temperature = 350f
             p.material = Pixel.Material.Metamorphic
-            p.elevation = app.random(-0.5f, 0.5f)
+            p.elevation = app.random(-0.2f, 0.2f)
             p.liquid = Pixel.Liquid.SaltWater
             p.liquidDepth = app.random(2f)
         }
