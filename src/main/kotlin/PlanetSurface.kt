@@ -104,11 +104,11 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             SaltWater(LiquidColorByBoth(
                 Color(20, 45, 105), Color(60, 140, 180), Color(5, 20, 40), Color(40, 60, 90)
             ), 300, 400,
-                { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
+                { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquid = None; it.addGas("water") }),
             FreshWater(LiquidColorByBoth(
                 Color(0x274E62), Color(0x3E8686), Color(0x1F335E), Color(0x477288)
             ), 300, 400,
-                { it.coating = Coating.Ice }, { it.liquid = None; it.addGas("water") }),
+                { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquid = None; it.addGas("water") }),
             MoltenMetal(LiquidColorByTemperature(Color(0xFF8000), Color(0xFFE285)), 2000, 20000,
                 { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; it.addGas("metal") })
         }
@@ -116,7 +116,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         enum class Coating(val lowColor: Color, val highColor: Color, val maxTemp: Int, val onHeat: Consumer<Pixel>) {
             None(Color.BLACK, Color.WHITE, 0, {}),
             Ice(Color(0xD6EFFF), Color(0xe5e3df), 300,
-                { it.coating = None; it.addLiquid(Liquid.FreshWater) }),
+                { it.replaceCoatingWithLiquid(Liquid.SaltWater) }),
             Obsidian(Color(0x160A23), Color(0x351F4F), 1000,
                 { it.coating = None; it.addLiquid(Liquid.MoltenRock) }),
             Waste(Color(0x4B4111), Color(0x6B5D1C), 200,
@@ -126,9 +126,24 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         var temperature = 0f
         var elevation = 0f
         var liquidDepth = 0f
+        var coatingThickness = 0f
         var material = Material.Unset
         var liquid = Liquid.None
         var coating = Coating.None
+
+        fun replaceLiquidWithCoating(coating: Coating) {
+            this.coating = coating
+            coatingThickness = liquidDepth
+            liquidDepth = 0f
+            liquid = Liquid.None
+        }
+
+        fun replaceCoatingWithLiquid(liquid: Liquid) {
+            this.liquid = liquid
+            liquidDepth = coatingThickness
+            coatingThickness = 0f
+            coating = Coating.None
+        }
 
         fun meltRock() {
             changeElevation(-1f)
@@ -179,17 +194,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             )
         }
 
-        /**
-         * If this is the checking pixel, only use elevation for calculation,
-         * I'm not sure if that's better than just not doing that, but it works for now
-         *
-         * @param checkingPixel the pixel that this pixel is the neighbor of
-         * @return the liquid height for purposes of water sharing
-         */
-        private fun getLiquidHeight(checkingPixel: Pixel): Float {
-            return if (checkingPixel != this) elevation + liquidDepth else elevation
-        }
-
         fun update() {
             updateTemperature()
             liquidFlow()
@@ -214,7 +218,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 surface.size / 2 - (position.first.y + odd - surface.size / 2).absoluteValue + poleEdge
             }
             val angle = map(distance, surface.size / 2f - odd + poleEdge, 0f, HALF_PI, PI)
-//            println("poleEdge: $poleEdge, distance: $distance, angle: " + (angle / PI))
             return sin(angle)
         }
 
@@ -240,12 +243,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         private fun heatFlow() {
             @Suppress("KotlinConstantConditions")
             if (surface.heatConductivity <= 0f) return
-//            val change = temperature / (4 + 1 / heatConductivity)
-//            for (n in getNeighbors()) {
-//                n.temperature += change
-//            }
-//            temperature -= change * 4
-
             val oldTemp = temperature
             for (n in getNeighbors()) {
                 temperature += n.temperature / (4 + 1 / surface.heatConductivity)
@@ -258,7 +255,11 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          * todo: interactions between different fluids
          */
         private fun liquidFlow() {
-            if (liquidDepth <= 0) return
+            if (liquidDepth <= 0 || liquid == Liquid.None) {
+                liquid = Liquid.None
+                liquidDepth = 0f
+                return
+            }
             val neighbors = getNeighbors() + this
 
             neighbors.sortWith {
@@ -271,10 +272,24 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             for (i in 0 until 5) {
                 val change = min(thisDepth, diffs[i]) / (i + 1)
                 neighbors[i].liquidDepth += change
+                if (change > 0) neighbors[i].liquid = liquid
                 liquidDepth -= change
                 thisDepth -= diffs[i] // or change, dunno which is better
                 if (thisDepth <= 0) break
             }
+        }
+
+        /**
+         * If this is the checking pixel, only use elevation for calculation,
+         * I'm not sure if that's better than just not doing that, but it works for now
+         *
+         * @param checkingPixel the pixel that this pixel is the neighbor of
+         * @return the liquid height for purposes of water sharing
+         */
+        private fun getLiquidHeight(checkingPixel: Pixel): Float {
+            return if (checkingPixel != this && liquid.ordinal == checkingPixel.liquid.ordinal) {
+                elevation + liquidDepth + coatingThickness
+            } else elevation + coatingThickness
         }
     }
 
@@ -297,7 +312,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         for (p in pixels) {
             p.temperature = 350f
             p.material = Pixel.Material.Metamorphic
-            p.elevation = app.random(-0.2f, 0.2f)
+//            p.elevation = app.random(-0.2f, 0.2f)
             p.liquid = Pixel.Liquid.SaltWater
             p.liquidDepth = app.random(2f)
         }
@@ -325,6 +340,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         }
     }
 
+    fun update() {
+        pixels.forEach { p -> p.update() }
+    }
+
     /**
      * Draws pixels onto the faces of the cube
      */
@@ -345,10 +364,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 }
             }
         }
-    }
-
-    fun update() {
-        pixels.forEach { p -> p.update() }
     }
 
     /**
