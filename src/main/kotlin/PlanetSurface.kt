@@ -75,9 +75,9 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             Metamorphic(Color(0x434357), Color(0x817B73), 5000,
                 { it.meltRock() }),
             Ice(Color(0xc8f2ff), Color(0xFFFFFF), 0,
-                { it.changeElevation(-1f); it.addLiquid(Liquid.FreshWater) }),
+                { it.changeElevation(-1f); it.addLiquid(Liquid.FreshWater, 1f) }),
             Metal(Color(0x948A8A), Color(0xFFFFFF), 7000,
-                { it.changeElevation(-1f); it.addLiquid(Liquid.MoltenMetal) }),
+                { it.changeElevation(-1f); it.addLiquid(Liquid.MoltenMetal, 1f) }),
             Mud(Color(0x392B4B), Color(0x833607), 100,
                 { it.material = Sedimentary }),
             Rust(Color(0x3D3D41), Color(0xCB461E), 1000,
@@ -118,7 +118,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             Ice(Color(0xD6EFFF), Color(0xe5e3df), 300,
                 { it.replaceCoatingWithLiquid(Liquid.SaltWater) }),
             Obsidian(Color(0x160A23), Color(0x351F4F), 1000,
-                { it.coating = None; it.addLiquid(Liquid.MoltenRock) }),
+                { it.coating = None; it.addLiquid(Liquid.MoltenRock, 1f) }),
             Waste(Color(0x4B4111), Color(0x6B5D1C), 200,
                 { it.coating = None; })
         }
@@ -147,18 +147,12 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         fun meltRock() {
             changeElevation(-1f)
-            addLiquid(Liquid.MoltenRock)
+            addLiquid(Liquid.MoltenRock, 1f)
         }
 
         // todo: interact with surrounding pixels
         fun changeElevation(amount: Float) {
             elevation = (elevation + amount).coerceIn(MIN_ELEVATION, MAX_ELEVATION)
-        }
-
-        // todo: interact with fluids already there
-        fun addLiquid(liquid: Liquid) {
-            this.liquid = liquid
-            liquidDepth = 1f
         }
 
         // todo: gas
@@ -221,11 +215,18 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             return sin(angle)
         }
 
+        private fun elevationRadiationMultiplier(): Float {
+            val h = elevation + liquidDepth + coatingThickness
+            return 1f + (h.pow(2) / 50f)
+        }
+
         /**
          * Simulates temperature and changes state.
          */
         private fun updateTemperature() {
-            temperature = temperature + solarStrength() * surface.solarEnergy - temperature * surface.heatRadiation
+            temperature = temperature +
+                    solarStrength() * surface.solarEnergy -
+                    temperature * surface.heatRadiation * elevationRadiationMultiplier()
             heatFlow()
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
