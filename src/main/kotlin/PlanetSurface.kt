@@ -298,6 +298,11 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 elevation + liquidDepth + coatingThickness
             } else elevation + coatingThickness
         }
+
+        fun erupt() {
+            temperature = 2000f
+            addLiquid(Liquid.MoltenRock, 1f)
+        }
     }
 
     private val north = Array(size * size) { i -> Pixel(Pair(positionFromIndex(i), Cube.FaceType.North), this) }
@@ -310,6 +315,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     private val pixels = arrayOf(*north, *south, *east, *west, *obverse, *reverse)
     private val equatorialPixels = arrayOf(*east, *west, *obverse, *reverse)
     private val polarPixels = arrayOf(*north, *south)
+    private var volcanoes = ArrayList<Pixel>()
 
     private val solarEnergy = 5f
     private val heatRadiation = 0.0115f
@@ -348,7 +354,11 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     }
 
     fun update() {
-        pixels.forEach { p -> p.update() }
+        pixels.forEach { it.update() }
+        volcanoes.forEach { it.erupt() }
+
+        if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
+        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
     }
 
     /**
