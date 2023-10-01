@@ -5,7 +5,9 @@ import processing.core.PApplet.PI
 import processing.core.PApplet.map
 import processing.core.PVector
 import java.awt.Color
+import java.util.*
 import java.util.function.Consumer
+import kotlin.collections.ArrayList
 import kotlin.math.*
 
 /**
@@ -276,7 +278,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             }
         }
 
-        private fun addLiquid(type: Liquid, amount: Float) {
+        public fun addLiquid(type: Liquid, amount: Float) {
             if (type.ordinal == liquid.ordinal || liquid == Liquid.None) {
                 liquidDepth += amount
                 liquid = type
@@ -356,6 +358,14 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
     fun update() {
         pixels.forEach { it.update() }
         volcanoes.forEach { it.erupt() }
+
+        val rainChance = (0..100).random()
+        if (rainChance == 42) {
+            println("its raining")
+            pixels.forEach {
+                it.addLiquid(Pixel.Liquid.FreshWater, 0.3f);
+            }
+        }
 
         if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
         if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
