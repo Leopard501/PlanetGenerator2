@@ -100,17 +100,17 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
             None(LiquidColorByDepth(Color.WHITE, Color.BLACK), 0, 1, {}, {}),
             MoltenRock(LiquidColorByTemperature(Color(0xFF2F00), Color(0xFF8000)), 1000, 10000,
-                { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None; it.addGas("rock") }),
+                { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None;  }),
             SaltWater(LiquidColorByBoth(
                 Color(20, 45, 105), Color(60, 140, 180), Color(5, 20, 40), Color(40, 60, 90)
             ), 300, 400,
-                { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquid = None; it.addGas("water") }),
+                { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquidDepth -= 0.1f; it.addGas(Gas.Water, 0.1f) }),
             FreshWater(LiquidColorByBoth(
                 Color(0x274E62), Color(0x3E8686), Color(0x1F335E), Color(0x477288)
             ), 300, 400,
-                { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquid = None; it.addGas("water") }),
+                { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquidDepth -= 0.1f; it.addGas(Gas.Water, 0.1f) }),
             MoltenMetal(LiquidColorByTemperature(Color(0xFF8000), Color(0xFFE285)), 2000, 20000,
-                { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; it.addGas("metal") })
+                { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; })
         }
 
         enum class Coating(val lowColor: Color, val highColor: Color, val maxTemp: Int, val onHeat: Consumer<Pixel>) {
@@ -123,13 +123,26 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 { it.coating = None; })
         }
 
+        enum class Gas(val color: Color, val minTemp: Int, val onCool: Consumer<Pixel>) {
+            None(Color.BLACK, 0, {}),
+            Water(Color.WHITE, 400,
+                { it.rain() })
+        }
+
         var temperature = 0f
         var elevation = 0f
         var liquidDepth = 0f
         var coatingThickness = 0f
+        var gasDensity = 0f
         var material = Material.Unset
         var liquid = Liquid.None
         var coating = Coating.None
+        var gas = Gas.None
+
+        fun rain() {
+            gasDensity -= 0.1f
+            addLiquid(Liquid.FreshWater, 0.1f)
+        }
 
         fun replaceLiquidWithCoating(coating: Coating) {
             this.coating = coating
@@ -150,14 +163,19 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             addLiquid(Liquid.MoltenRock, 1f)
         }
 
-        // todo: interact with surrounding pixels
         fun changeElevation(amount: Float) {
             elevation = (elevation + amount).coerceIn(MIN_ELEVATION, MAX_ELEVATION)
         }
 
-        // todo: gas
-        fun addGas(gasTodo: String) {
+        fun addGas(type: Gas, amount: Float) {
+            if (type.ordinal == gas.ordinal || gas == Gas.None) {
+                gasDensity += amount
+                gas = type
+                return
+            }
 
+            TODO("gas interactions")
+//            liquidInteraction(liquid, liquidDepth, type, amount).accept(this)
         }
 
         /**
@@ -166,7 +184,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          * @return the color of this pixel in rgb
          */
         fun getColor(): Int {
-            return if (coating != Coating.None) mapColor(
+            var r = if (coating != Coating.None) mapColor(
                 coating.highColor, coating.lowColor,
                 0f, coating.maxTemp.toFloat(), temperature
             ).rgb
@@ -174,6 +192,12 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             else mapColor(
                 material.lowColor, material.highColor,
                 MIN_ELEVATION, MAX_ELEVATION, elevation).rgb
+
+            if (gas != Gas.None) {
+                r = mapColor(Color(r), gas.color, 0f, 10f, gasDensity).rgb
+            }
+
+            return r
         }
 
         /**
@@ -234,6 +258,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             if (temperature > liquid.maxTemp && liquidDepth > 0) liquid.onHeat.accept(this)
             if (temperature < liquid.minTemp && liquidDepth > 0) liquid.onCool.accept(this)
             if (temperature > material.maxTemp) material.onHeat.accept(this)
+            if (temperature < gas.minTemp) gas.onCool.accept(this)
+
+            // temp until gas flow
+            if (gasDensity <= 0) gas = Gas.None
         }
 
         /**
@@ -358,8 +386,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         pixels.forEach { it.update() }
         volcanoes.forEach { it.erupt() }
 
-//        if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
-//        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
+        if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
+        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
     }
 
     /**

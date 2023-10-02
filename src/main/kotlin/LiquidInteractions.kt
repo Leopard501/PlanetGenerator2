@@ -63,6 +63,7 @@ fun simpleReplace(typeA: PlanetSurface.Pixel.Liquid, depthA: Float,
 
 fun vaporize(replacement: PlanetSurface.Pixel.Liquid, replacementDepth: Float): Consumer<PlanetSurface.Pixel> {
     return Consumer { p ->
+        p.addGas(PlanetSurface.Pixel.Gas.Water, p.liquidDepth)
         p.liquid = replacement
         p.liquidDepth = replacementDepth
     }
