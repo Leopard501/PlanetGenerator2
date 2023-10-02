@@ -1,6 +1,9 @@
 package main.kotlin
 
 import processing.core.PVector
+import kotlin.math.absoluteValue
+import kotlin.math.sqrt
+import kotlin.math.pow
 
 class IntVector {
     var x: Int
@@ -44,5 +47,9 @@ class IntVector {
 
     fun copy(): IntVector {
         return IntVector(x, y)
+    }
+
+    fun diff(other: PVector): Float {
+        return (x - other.x).absoluteValue + (y - other.y).absoluteValue
     }
 }

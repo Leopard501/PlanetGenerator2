@@ -197,13 +197,15 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 r = mapColor(Color(r), gas.color, 0f, 10f, gasDensity).rgb
             }
 
+//            var r = mapColor(Color.BLUE, Color.RED, 0f, 1000f, temperature).rgb
+
             return r
         }
 
         /**
-         * @return an array 4 touching pixels, ordered clockwise from up
+         * @return an array of 4 touching pixels, ordered clockwise from up
          */
-        private fun getNeighbors(): Array<Pixel> {
+        private fun get4Neighbors(): Array<Pixel> {
             return arrayOf(
                 surface.pixelAtPosition(surface.cube.changePositionCubical(position, Cube.Directions.Up)),
                 surface.pixelAtPosition(surface.cube.changePositionCubical(position, Cube.Directions.Right)),
@@ -212,9 +214,26 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             )
         }
 
+        /**
+         * @return an array of 8 touching pixels and corners, ordered clockwise from up
+         */
+        private fun get8Neighbors(): Array<Pixel> {
+            return arrayOf(
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(0, -1))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(1, -1))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(1, 0))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(1, 1))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(0, 1))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(-1, 1))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(-1, 0))),
+                surface.pixelAtPosition(surface.cube.changePositionCubical(position, IntVector(-1, -1))),
+            )
+        }
+
         fun update() {
             updateTemperature()
             liquidFlow()
+            gasFlow()
         }
 
         /**
@@ -272,7 +291,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             @Suppress("KotlinConstantConditions")
             if (surface.heatConductivity <= 0f) return
             val oldTemp = temperature
-            for (n in getNeighbors()) {
+            for (n in get4Neighbors()) {
                 temperature += n.temperature / (4 + 1 / surface.heatConductivity)
             }
             temperature -= (oldTemp / (4 + 1 / surface.heatConductivity)) * 4
@@ -287,7 +306,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 liquidDepth = 0f
                 return
             }
-            val neighbors = getNeighbors() + this
+            val neighbors = get4Neighbors() + this
 
             neighbors.sortWith {
                     p1: Pixel, p2: Pixel -> (p1.getLiquidHeight(this) - p2.getLiquidHeight(this)).sign.toInt()
@@ -337,12 +356,50 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         /**
          * Simulates movement of gasses from wind.
+         * todo: coriolis effect
          */
         private fun gasFlow() {
+            if (gasDensity <= 0 || gas == Gas.None) {
+                gas = Gas.None
+                gasDensity = 0f
+                return
+            }
 
+            val wind = getWind(surface.size / 8)
+            if (wind.first.x == 0f && wind.first.y == 0f) return
+            val strength = (wind.second / 10f).coerceAtMost(1f)
+
+            val affectedNeighbors = arrayListOf(
+                IntVector(floor(wind.first.x), floor(wind.first.y)),
+                IntVector(ceil(wind.first.x), ceil(wind.first.y)),
+                IntVector(floor(wind.first.x), ceil(wind.first.y)),
+                IntVector(ceil(wind.first.x), floor(wind.first.y)),
+            )
+            for (i in 0 until 4) {
+                if (affectedNeighbors[i].x == 0 && affectedNeighbors[i].y == 0) {
+                    affectedNeighbors.removeAt(i)
+                    break
+                }
+            }
+
+            var newDensity = gasDensity
+            for (neighbor in affectedNeighbors) {
+                val change = gasDensity * strength * (1 - neighbor.diff(wind.first)).coerceAtLeast(0f)
+                surface.pixelAtPosition(surface.cube.changePositionSpherical(position, neighbor))
+                    .addGas(gas, change)
+                newDensity -= change
+            }
+
+            gasDensity = newDensity
         }
 
-        private fun getWind(range: Int): PVector {
+        /**
+         * Gets the wind direction and strength by checking temperature in a square range
+         *
+         * @param range radius of a square of pixels to check temperature
+         * @return a PVector pointing toward the hottest pixel in range, and the difference in temperature
+         */
+        private fun getWind(range: Int): Pair<PVector, Float> {
             val checked = ArrayList<Pair<Pixel, IntVector>>()
             for (x in 0 until range) {
                 for (y in 0 until range) {
@@ -360,7 +417,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 }
             }
 
-            return dist.toPVector().setMag((temperature - highTemp).absoluteValue)
+            return Pair(dist.toPVector().normalize(), (temperature - highTemp).absoluteValue)
         }
 
         fun erupt() {
