@@ -58,8 +58,6 @@ class Cube(private val size: Int) {
     private val obverse = Face(size, FaceType.Obverse)
     private val reverse = Face(size, FaceType.Reverse)
 
-    private val scale = 10f
-
     fun display(position: PVector) {
         val img = app.createImage(size * 4, size * 3, PConstants.ARGB);
         img.loadPixels()
@@ -73,6 +71,7 @@ class Cube(private val size: Int) {
         }
         img.updatePixels()
 
+        val scale = 10 / (size / 16f)
         app.image(img, position.x, position.y, size * 4 * scale, size * 3 * scale)
     }
 

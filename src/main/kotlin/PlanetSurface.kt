@@ -224,9 +224,10 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          * Simulates temperature and changes state.
          */
         private fun updateTemperature() {
-            temperature = temperature +
-                    solarStrength() * surface.solarEnergy -
-                    temperature * surface.heatRadiation * elevationRadiationMultiplier()
+            val tempScale = 16f / surface.size
+            val solar = (solarStrength() * surface.solarEnergy) * tempScale
+            val radiation = (temperature * surface.heatRadiation * elevationRadiationMultiplier()) * tempScale
+            temperature = temperature + solar - radiation
             heatFlow()
 
             if (temperature > coating.maxTemp) coating.onHeat.accept(this)
@@ -319,7 +320,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
     private val solarEnergy = 5f
     private val heatRadiation = 0.0115f
-    private val heatConductivity = 0.5f
+    private val heatConductivity = 1
 
     init {
         for (p in pixels) {
@@ -357,8 +358,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         pixels.forEach { it.update() }
         volcanoes.forEach { it.erupt() }
 
-        if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
-        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
+//        if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
+//        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
     }
 
     /**

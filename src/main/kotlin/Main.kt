@@ -27,7 +27,7 @@ class Main: PApplet() {
         imageMode(PConstants.CENTER)
         surface.setTitle("Experiment")
 
-        planet = Planet(16)
+        planet = Planet(64)
     }
 
     override fun draw() {
