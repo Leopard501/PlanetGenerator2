@@ -1,12 +1,12 @@
 package main.kotlin
 
-import processing.core.PApplet.HALF_PI
-import processing.core.PApplet.PI
-import processing.core.PApplet.map
+import processing.core.PApplet.*
 import processing.core.PVector
 import java.awt.Color
 import java.util.function.Consumer
-import kotlin.math.*
+import kotlin.math.absoluteValue
+import kotlin.math.pow
+import kotlin.math.sign
 
 /**
  * The simulated surface of a planet
@@ -306,6 +306,12 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             }
         }
 
+        /**
+         * Adds some liquid to the surface, with interaction
+         *
+         * @param type type of liquid to add
+         * @param amount depth of liquid added
+         */
         private fun addLiquid(type: Liquid, amount: Float) {
             if (type.ordinal == liquid.ordinal || liquid == Liquid.None) {
                 liquidDepth += amount
@@ -327,6 +333,34 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             return if (checkingPixel != this && liquid.ordinal == checkingPixel.liquid.ordinal) {
                 elevation + liquidDepth + coatingThickness
             } else elevation + coatingThickness
+        }
+
+        /**
+         * Simulates movement of gasses from wind.
+         */
+        private fun gasFlow() {
+
+        }
+
+        private fun getWind(range: Int): PVector {
+            val checked = ArrayList<Pair<Pixel, IntVector>>()
+            for (x in 0 until range) {
+                for (y in 0 until range) {
+                    val p = IntVector(ceil(x - range / 2f), ceil(x - range / 2f))
+                    checked.add(Pair(surface.pixelAtPosition(surface.cube.changePositionSpherical(position, p)), p))
+                }
+            }
+
+            var highTemp = temperature
+            var dist = IntVector(0, 0)
+            checked.forEach {
+                if (it.first.temperature > highTemp) {
+                    highTemp = it.first.temperature
+                    dist = it.second
+                }
+            }
+
+            return dist.toPVector().setMag((temperature - highTemp).absoluteValue)
         }
 
         fun erupt() {

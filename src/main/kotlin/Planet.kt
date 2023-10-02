@@ -3,7 +3,6 @@ package main.kotlin
 import processing.core.PConstants
 import processing.core.PImage
 import processing.core.PVector
-import java.awt.Color
 import kotlin.math.sin
 
 class Planet(private val size: Int) {
