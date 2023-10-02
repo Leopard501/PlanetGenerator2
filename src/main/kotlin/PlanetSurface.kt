@@ -250,7 +250,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         private fun updateTemperature() {
             val tempScale = 16f / surface.size
             val solar = (solarStrength() * surface.solarEnergy) * tempScale
-            val radiation = (temperature * surface.heatRadiation * elevationRadiationMultiplier()) * tempScale
+            val landRadiationMultiplier = if (liquidDepth > 0) 0.90f else 1.1f
+            val radiation = (temperature * surface.heatRadiation * elevationRadiationMultiplier() * landRadiationMultiplier) * tempScale
             temperature = temperature + solar - radiation
             heatFlow()
 
