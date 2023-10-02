@@ -365,7 +365,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 return
             }
 
-            val wind = getWind(surface.size / 8)
+            val wind = getWind(surface.size / 16)
             if (wind.first.x == 0f && wind.first.y == 0f) return
             val strength = (wind.second / 10f).coerceAtMost(1f)
 
@@ -401,9 +401,9 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          */
         private fun getWind(range: Int): Pair<PVector, Float> {
             val checked = ArrayList<Pair<Pixel, IntVector>>()
-            for (x in 0 until range) {
-                for (y in 0 until range) {
-                    val p = IntVector(ceil(x - range / 2f), ceil(x - range / 2f))
+            for (x in -range .. range) {
+                for (y in -range .. range) {
+                    val p = IntVector(x, y)
                     checked.add(Pair(surface.pixelAtPosition(surface.cube.changePositionSpherical(position, p)), p))
                 }
             }
