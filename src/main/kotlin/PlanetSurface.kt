@@ -279,9 +279,6 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
             if (temperature < liquid.minTemp && liquidDepth > 0) liquid.onCool.accept(this)
             if (temperature > material.maxTemp) material.onHeat.accept(this)
             if (temperature < gas.minTemp) gas.onCool.accept(this)
-
-            // temp until gas flow
-            if (gasDensity <= 0) gas = Gas.None
         }
 
         /**
@@ -384,13 +381,14 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
             var newDensity = gasDensity
             for (neighbor in affectedNeighbors) {
-                val change = gasDensity * strength * (1 - neighbor.diff(wind.first)).coerceAtLeast(0f)
+                val diff = (1 - neighbor.diff(wind.first).coerceIn(0f, 1f))
+                val change = newDensity * strength * diff
                 surface.pixelAtPosition(surface.cube.changePositionSpherical(position, neighbor))
                     .addGas(gas, change)
                 newDensity -= change
             }
 
-            gasDensity = newDensity
+            gasDensity = newDensity.coerceAtLeast(0f)
         }
 
         /**
