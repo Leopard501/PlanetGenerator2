@@ -1,9 +1,12 @@
 package main.kotlin
 
+import processing.core.PApplet
 import processing.core.PConstants
 import processing.core.PImage
 import processing.core.PVector
 import java.awt.Color
+import kotlin.math.absoluteValue
+import kotlin.math.pow
 
 class Cube(private val size: Int) {
 
@@ -118,6 +121,48 @@ class Cube(private val size: Int) {
             IntVector(app.random(size.toFloat()).toInt(), app.random(size.toFloat()).toInt()),
             FaceType.values()[app.random(6f).toInt()]
         )
+    }
+
+    /**
+     * Gets the hemisphere of a pixel
+     *
+     * @param position position of pixel
+     * @return North or South
+     */
+    fun getHemisphere(position: Position): FaceType {
+        return when (position.second) {
+            FaceType.North -> FaceType.North
+            FaceType.South -> FaceType.South
+            else -> {
+                if (position.first.y < size / 2) FaceType.North
+                else FaceType.South
+            }
+        }
+    }
+
+    /**
+     * Gets the latitude of a pixel, with 0 at the equator and 1 at the poles
+     * Two different systems for polar faces and equatorial faces,
+     * works for now; might change based on how the cube is translated to a sphere.
+     *
+     * @param position position of pixel
+     * @return latitude, with 0 at the equator and 1 at the poles
+     */
+    fun getLatitude(position: Position): Float {
+        val poleEdge = PApplet.sqrt((size / 2f).pow(2) * 2)
+        val odd = if (size % 2 == 0) 0.5f else 0f
+        val distance = if (position.second == FaceType.North || position.second == FaceType.South) {
+            // Circular
+            val normal = PVector(position.first.x - size / 2 + odd, position.first.y - size / 2 + odd)
+            PApplet.sqrt(normal.x.pow(2) + normal.y.pow(2))
+        } else {
+            // Linear
+            size / 2 - (position.first.y + odd - size / 2).absoluteValue + poleEdge
+        }
+//        if (position.second == FaceType.South || (position.second != FaceType.North && position.first.y > size / 2)) {
+//            distance *= -1
+//        }
+        return PApplet.map(distance, size / 2f - odd + poleEdge, 0f, 0f, 1f)
     }
 
     fun changePositionSpherical(position: Position, change: IntVector): Position {

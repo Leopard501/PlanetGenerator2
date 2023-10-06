@@ -139,6 +139,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         var coating = Coating.None
         var gas = Gas.None
 
+        private var angularVelocity = 20f
+
         fun rain() {
             gasDensity -= 0.1f
             addLiquid(Liquid.FreshWater, 0.1f)
@@ -244,17 +246,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
          * @return solar energy multiplier: 1 at equator, 0 at poles
          */
         private fun solarStrength(): Float {
-            val poleEdge = sqrt((surface.size / 2f).pow(2) * 2)
-            val odd = if (surface.size % 2 == 0) 0.5f else 0f
-            val distance = if (position.second == Cube.FaceType.North || position.second == Cube.FaceType.South) {
-                // Circular
-                val normal = PVector(position.first.x - surface.size / 2 + odd, position.first.y - surface.size / 2 + odd)
-                sqrt(normal.x.pow(2) + normal.y.pow(2))
-            } else {
-                // Linear
-                surface.size / 2 - (position.first.y + odd - surface.size / 2).absoluteValue + poleEdge
-            }
-            val angle = map(distance, surface.size / 2f - odd + poleEdge, 0f, HALF_PI, PI)
+            val angle = map(surface.cube.getLatitude(position).absoluteValue, 0f, 1f, HALF_PI, PI)
             return sin(angle)
         }
 
@@ -406,16 +398,31 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 }
             }
 
+            // Temperature deflection
             var highTemp = temperature
-            var dist = IntVector(0, 0)
+            var dist = PVector(0f, 0f)
             checked.forEach {
                 if (it.first.temperature > highTemp) {
                     highTemp = it.first.temperature
-                    dist = it.second
+                    dist = it.second.toPVector().normalize()
                 }
             }
+            var speed = (temperature - highTemp).absoluteValue
 
-            return Pair(dist.toPVector().normalize(), (temperature - highTemp).absoluteValue)
+            // Coriolis Effect
+            val cor = surface.cube.changePositionSpherical(position,
+                if (surface.cube.getHemisphere(position) == Cube.FaceType.North && angularVelocity > 0)
+                    Cube.Directions.Right
+                else Cube.Directions.Left
+            ).first.toPVector().setMag(
+                angularVelocity.absoluteValue * sin(surface.cube.getLatitude(position))
+            )
+            dist.setMag(speed)
+            dist += cor
+            speed += dist.mag()
+            dist.normalize()
+
+            return Pair(dist, speed)
         }
 
         fun erupt() {
