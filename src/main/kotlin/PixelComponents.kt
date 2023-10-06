@@ -40,7 +40,7 @@ class LiquidColorByBoth(
             hotColor,
             liquid.minTemp.toFloat(),
             liquid.maxTemp.toFloat(),
-            temperature.toFloat()
+            temperature
         ).rgb
     }
 }

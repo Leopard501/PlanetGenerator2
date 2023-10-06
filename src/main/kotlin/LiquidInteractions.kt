@@ -2,46 +2,45 @@ package main.kotlin
 
 import java.util.function.Consumer
 
-fun liquidInteraction(typeA: PlanetSurface.Pixel.Liquid, depthA: Float,
-                      typeB: PlanetSurface.Pixel.Liquid, depthB: Float): Consumer<PlanetSurface.Pixel> {
+fun liquidInteraction(typeA: Liquid, depthA: Float, typeB: Liquid, depthB: Float): Consumer<Pixel> {
     return when (typeA) {
-        PlanetSurface.Pixel.Liquid.SaltWater ->
+        Liquid.SaltWater ->
             when (typeB) {
-                PlanetSurface.Pixel.Liquid.FreshWater ->
+                Liquid.FreshWater ->
                     simpleReplace(typeA, depthA, typeB, depthB)
-                PlanetSurface.Pixel.Liquid.MoltenRock ->
+                Liquid.MoltenRock ->
                     vaporize(typeB, depthB)
-                PlanetSurface.Pixel.Liquid.MoltenMetal ->
-                    vaporize(typeB, depthB)
-                else -> throw RuntimeException("The interaction between $typeA and $typeB is not defined")
-            }
-        PlanetSurface.Pixel.Liquid.FreshWater ->
-            when (typeB) {
-                PlanetSurface.Pixel.Liquid.SaltWater ->
-                    simpleReplace(typeA, depthA, typeB, depthB)
-                PlanetSurface.Pixel.Liquid.MoltenRock ->
-                    vaporize(typeB, depthB)
-                PlanetSurface.Pixel.Liquid.MoltenMetal ->
+                Liquid.MoltenMetal ->
                     vaporize(typeB, depthB)
                 else -> throw RuntimeException("The interaction between $typeA and $typeB is not defined")
             }
-        PlanetSurface.Pixel.Liquid.MoltenRock ->
+        Liquid.FreshWater ->
             when (typeB) {
-                PlanetSurface.Pixel.Liquid.MoltenMetal ->
+                Liquid.SaltWater ->
                     simpleReplace(typeA, depthA, typeB, depthB)
-                PlanetSurface.Pixel.Liquid.SaltWater ->
+                Liquid.MoltenRock ->
+                    vaporize(typeB, depthB)
+                Liquid.MoltenMetal ->
+                    vaporize(typeB, depthB)
+                else -> throw RuntimeException("The interaction between $typeA and $typeB is not defined")
+            }
+        Liquid.MoltenRock ->
+            when (typeB) {
+                Liquid.MoltenMetal ->
+                    simpleReplace(typeA, depthA, typeB, depthB)
+                Liquid.SaltWater ->
                     vaporize(typeA, depthA)
-                PlanetSurface.Pixel.Liquid.FreshWater ->
+                Liquid.FreshWater ->
                     vaporize(typeA, depthA)
                 else -> throw RuntimeException("The interaction between $typeA and $typeB is not defined")
             }
-        PlanetSurface.Pixel.Liquid.MoltenMetal ->
+        Liquid.MoltenMetal ->
             when (typeB) {
-                PlanetSurface.Pixel.Liquid.MoltenRock ->
+                Liquid.MoltenRock ->
                     simpleReplace(typeA, depthA, typeB, depthB)
-                PlanetSurface.Pixel.Liquid.SaltWater ->
+                Liquid.SaltWater ->
                     vaporize(typeA, depthA)
-                PlanetSurface.Pixel.Liquid.FreshWater ->
+                Liquid.FreshWater ->
                     vaporize(typeA, depthA)
                 else -> throw RuntimeException("The interaction between $typeA and $typeB is not defined")
             }
@@ -49,8 +48,8 @@ fun liquidInteraction(typeA: PlanetSurface.Pixel.Liquid, depthA: Float,
     }
 }
 
-fun simpleReplace(typeA: PlanetSurface.Pixel.Liquid, depthA: Float,
-                  typeB: PlanetSurface.Pixel.Liquid, depthB: Float): Consumer<PlanetSurface.Pixel> {
+fun simpleReplace(typeA: Liquid, depthA: Float,
+                  typeB: Liquid, depthB: Float): Consumer<Pixel> {
     return Consumer { p ->
         p.liquid =
             if (depthA > depthB) typeA
@@ -61,9 +60,9 @@ fun simpleReplace(typeA: PlanetSurface.Pixel.Liquid, depthA: Float,
     }
 }
 
-fun vaporize(replacement: PlanetSurface.Pixel.Liquid, replacementDepth: Float): Consumer<PlanetSurface.Pixel> {
+fun vaporize(replacement: Liquid, replacementDepth: Float): Consumer<Pixel> {
     return Consumer { p ->
-        p.addGas(PlanetSurface.Pixel.Gas.Water, p.liquidDepth)
+        p.addGas(Gas.Water, p.liquidDepth)
         p.liquid = replacement
         p.liquidDepth = replacementDepth
     }

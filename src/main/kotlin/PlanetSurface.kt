@@ -66,7 +66,7 @@ class PlanetSurface(val size: Int, val cube: Cube) {
         volcanoes.forEach { it.erupt() }
 
         if (app.random(120f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
-//        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
+        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
     }
 
     /**

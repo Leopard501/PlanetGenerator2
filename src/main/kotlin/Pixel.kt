@@ -3,9 +3,7 @@ package main.kotlin
 import processing.core.PApplet
 import processing.core.PVector
 import java.awt.Color
-import kotlin.math.absoluteValue
-import kotlin.math.pow
-import kotlin.math.sign
+import kotlin.math.*
 
 /**
  * A simulated pixel on the surface of a planet
@@ -145,6 +143,7 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
     private fun elevationRadiationMultiplier(): Float {
         val h = elevation + liquidDepth + coatingThickness
         return 1f + (h.pow(2) / 50f)
+//        return 1f
     }
 
     /**
@@ -237,8 +236,6 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
 
     /**
      * Simulates movement of gasses from wind.
-     *
-     * todo: density
      */
     private fun gasFlow() {
         if (gasDensity <= 0 || gas == Gas.None) {
@@ -250,13 +247,13 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         val wind = getWind(surface.size / 16)
         if (wind.first.x == 0f && wind.first.y == 0f) return
         val strength = (wind.second / 10f).coerceAtMost(1f)
-
         val affectedNeighbors = arrayListOf(
             IntVector(PApplet.floor(wind.first.x), PApplet.floor(wind.first.y)),
             IntVector(PApplet.ceil(wind.first.x), PApplet.ceil(wind.first.y)),
             IntVector(PApplet.floor(wind.first.x), PApplet.ceil(wind.first.y)),
             IntVector(PApplet.ceil(wind.first.x), PApplet.floor(wind.first.y)),
         )
+        // Remove this pixel
         for (i in 0 until 4) {
             if (affectedNeighbors[i].x == 0 && affectedNeighbors[i].y == 0) {
                 affectedNeighbors.removeAt(i)
@@ -264,6 +261,7 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
             }
         }
 
+        // Move gas
         var newDensity = gasDensity
         for (neighbor in affectedNeighbors) {
             val diff = (1 - neighbor.diff(wind.first).coerceIn(0f, 1f))
@@ -273,11 +271,13 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
             newDensity -= change
         }
 
+        // Should not be necessary, precaution only
         gasDensity = newDensity.coerceAtLeast(0f)
     }
 
     /**
-     * Gets the wind direction and strength by checking temperature in a square range
+     * Gets the wind direction and strength by checking temperature and density in a square range,
+     * deflected by the coriolis effect
      *
      * @param range radius of a square of pixels to check temperature
      * @return a PVector pointing toward the hottest pixel in range, and the difference in temperature
@@ -290,17 +290,33 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
                 checked.add(Pair(surface.pixelAtPosition(surface.cube.changePositionSpherical(position, p)), p))
             }
         }
+        checked.shuffle()
+
+        var dist: PVector
 
         // Temperature deflection
         var highTemp = temperature
-        var dist = PVector(0f, 0f)
+        var temp = PVector(0f, 0f)
         checked.forEach {
             if (it.first.temperature > highTemp) {
                 highTemp = it.first.temperature
-                dist = it.second.toPVector().normalize()
+                temp = it.second.toPVector().normalize()
             }
         }
+        dist = temp.copy()
         var speed = (temperature - highTemp).absoluteValue
+
+        // Density deflection
+        var dens = PVector(0f, 0f)
+        var lowDensity = gasDensity
+        checked.forEach {
+            lowDensity = min(lowDensity, it.first.gasDensity)
+            dens += it.second.toPVector().setMag((gasDensity - it.first.gasDensity).absoluteValue)
+        }
+        dens.setMag((gasDensity - lowDensity).absoluteValue * 0.2f)
+        dist.setMag(speed)
+        dist += dens
+        speed = dist.mag()
 
         // Coriolis Effect
         val cor = surface.cube.changePositionSpherical(position,
@@ -312,7 +328,7 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         )
         dist.setMag(speed)
         dist += cor
-        speed += dist.mag()
+        speed = dist.mag()
         dist.normalize()
 
         return Pair(dist, speed)
