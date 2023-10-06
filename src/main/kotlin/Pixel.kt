@@ -140,6 +140,10 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         return PApplet.sin(angle)
     }
 
+    /**
+     * Multiplier for radiation amount based on elevation.
+     * todo: can lower overall planet temperature
+     */
     private fun elevationRadiationMultiplier(): Float {
         val h = elevation + liquidDepth + coatingThickness
         return 1f + (h.pow(2) / 50f)
