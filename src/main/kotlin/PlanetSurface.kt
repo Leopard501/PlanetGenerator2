@@ -199,7 +199,7 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
                 r = mapColor(Color(r), gas.color, 0f, 10f, gasDensity).rgb
             }
 
-//            var r = mapColor(Color.BLUE, Color.RED, 0f, 1000f, temperature).rgb
+//            var r = mapColor(Color.BLUE, Color.RED, 300f, 400f, temperature).rgb
 
             return r
         }
@@ -345,7 +345,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
 
         /**
          * Simulates movement of gasses from wind.
-         * todo: coriolis effect
+         *
+         * todo: density
          */
         private fun gasFlow() {
             if (gasDensity <= 0 || gas == Gas.None) {
@@ -483,8 +484,8 @@ class PlanetSurface(private val size: Int, private val cube: Cube) {
         pixels.forEach { it.update() }
         volcanoes.forEach { it.erupt() }
 
-        if (app.random(60f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
-        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
+        if (app.random(120f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
+//        if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
     }
 
     /**
