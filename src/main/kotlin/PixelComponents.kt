@@ -2,6 +2,7 @@ package main.kotlin
 
 import java.awt.Color
 import java.util.function.Consumer
+import kotlin.math.min
 
 /**
  * Class that contains a function describing how to color a liquid based on depth and temperature
@@ -90,22 +91,22 @@ enum class Material(val lowColor: Color, val highColor: Color, val maxTemp: Int,
 enum class Liquid(
     val color: LiquidColor,
     val minTemp: Int, val maxTemp: Int,
-    val onCool: Consumer<Pixel>, val onHeat: Consumer<Pixel>
+    val onCool: Consumer<Pixel>, val onHeat: Consumer<Pixel>, val onEvaporate: Consumer<Pixel>
 ) {
 
-    None(LiquidColorByDepth(Color.WHITE, Color.BLACK), 0, 1, {}, {}),
+    None(LiquidColorByDepth(Color.WHITE, Color.BLACK), 0, 1, {}, {}, {}),
     MoltenRock(LiquidColorByTemperature(Color(0xFF2F00), Color(0xFF8000)), 1000, 10000,
-        { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None;  }),
+        { it.liquid = None; it.material = Material.Igneous; it.changeElevation(1f) }, { it.liquid = None; }, {}),
     SaltWater(LiquidColorByBoth(
         Color(20, 45, 105), Color(60, 140, 180), Color(5, 20, 40), Color(40, 60, 90)
     ), 300, 400,
-        { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquidDepth -= 0.1f; it.addGas(Gas.Water, 0.1f) }),
+        { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquidDepth -= 0.1f; it.addGas(Gas.Water, 0.1f) }, { it.evaporate() }),
     FreshWater(LiquidColorByBoth(
         Color(0x274E62), Color(0x3E8686), Color(0x1F335E), Color(0x477288)
     ), 300, 400,
-        { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquidDepth -= 0.1f; it.addGas(Gas.Water, 0.1f) }),
+        { it.replaceLiquidWithCoating(Coating.Ice) }, { it.liquidDepth -= 0.1f; it.addGas(Gas.Water, 0.1f) }, { it.evaporate() }),
     MoltenMetal(LiquidColorByTemperature(Color(0xFF8000), Color(0xFFE285)), 2000, 20000,
-        { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; })
+        { it.liquid = None; it.material = Material.Metal; it.changeElevation(1f) }, { it.liquid = None; }, {})
 }
 
 enum class Coating(val lowColor: Color, val highColor: Color, val maxTemp: Int, val onHeat: Consumer<Pixel>) {

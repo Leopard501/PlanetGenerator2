@@ -3,6 +3,7 @@ package main.kotlin
 import java.util.function.Consumer
 
 fun liquidInteraction(typeA: Liquid, depthA: Float, typeB: Liquid, depthB: Float): Consumer<Pixel> {
+    if (typeA == Liquid.None || typeB == Liquid.None) return Consumer {}
     return when (typeA) {
         Liquid.SaltWater ->
             when (typeB) {

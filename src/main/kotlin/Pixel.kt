@@ -28,11 +28,26 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
     var coating = Coating.None
     var gas = Gas.None
 
-    private var angularVelocity = 20f
+    private fun liquidIsSettled(): Boolean {
+        var isSettled = true
+        get4Neighbors().forEach {
+            isSettled = isSettled && (getHeight() - it.getHeight()).absoluteValue < 0.1f
+        }
+        return isSettled
+    }
+
+    fun evaporate() {
+        val change = min(liquidDepth, 0.02f)
+        addGas(Gas.Water, change)
+        liquidDepth -= change
+        liquid = Liquid.SaltWater
+    }
 
     fun rain() {
-        gasDensity -= 0.1f
-        addLiquid(Liquid.FreshWater, 0.1f)
+        val change = min(gasDensity, 0.1f)
+
+        gasDensity -= change
+        addLiquid(Liquid.FreshWater, change)
     }
 
     fun replaceLiquidWithCoating(coating: Coating) {
@@ -58,15 +73,11 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         elevation = (elevation + amount).coerceIn(MIN_ELEVATION, MAX_ELEVATION)
     }
 
+    // Issues with multiple gas types
     fun addGas(type: Gas, amount: Float) {
-        if (type.ordinal == gas.ordinal || gas == Gas.None) {
-            gasDensity += amount
-            gas = type
-            return
-        }
-
-        TODO("gas interactions")
-//            liquidInteraction(liquid, liquidDepth, type, amount).accept(this)
+        gasDensity += amount
+        gas = type
+        return
     }
 
     /**
@@ -86,7 +97,7 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         ).rgb
 
         if (gas != Gas.None) {
-            r = PlanetSurface.mapColor(Color(r), gas.color, 0f, 10f, gasDensity).rgb
+            r = PlanetSurface.mapColor(Color(r), gas.color, 0f, 5f, gasDensity).rgb
         }
 
 //            var r = mapColor(Color.BLUE, Color.RED, 300f, 400f, temperature).rgb
@@ -124,8 +135,8 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
 
     fun update() {
         updateTemperature()
-        liquidFlow()
-        gasFlow()
+        updateLiquid()
+        updateGas()
     }
 
     /**
@@ -142,12 +153,11 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
 
     /**
      * Multiplier for radiation amount based on elevation.
-     * todo: can lower overall planet temperature
      */
     private fun elevationRadiationMultiplier(): Float {
         val h = elevation + liquidDepth + coatingThickness
-        return 1f + (h.pow(2) / 50f)
-//        return 1f
+//        return 1f + (h.pow(2) / 50f)
+        return 1f
     }
 
     /**
@@ -162,10 +172,7 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         heatFlow()
 
         if (temperature > coating.maxTemp) coating.onHeat.accept(this)
-        if (temperature > liquid.maxTemp && liquidDepth > 0) liquid.onHeat.accept(this)
-        if (temperature < liquid.minTemp && liquidDepth > 0) liquid.onCool.accept(this)
         if (temperature > material.maxTemp) material.onHeat.accept(this)
-        if (temperature < gas.minTemp) gas.onCool.accept(this)
     }
 
     /**
@@ -181,22 +188,35 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         temperature -= (oldTemp / (4 + 1 / surface.heatConductivity)) * 4
     }
 
-    /**
-     * Simulates movement of liquids.
-     */
-    private fun liquidFlow() {
+    private fun updateLiquid() {
         if (liquidDepth <= 0 || liquid == Liquid.None) {
             liquid = Liquid.None
             liquidDepth = 0f
             return
         }
+
+        if (temperature > liquid.maxTemp && liquidDepth > 0) liquid.onHeat.accept(this)
+        if (temperature < liquid.minTemp && liquidDepth > 0) liquid.onCool.accept(this)
+
+        if (liquidIsSettled() &&
+            temperature > liquid.minTemp + (liquid.maxTemp - liquid.minTemp) * 0.3f &&
+            app.random(120f) < 1f)
+            liquid.onEvaporate.accept(this)
+
+        liquidFlow()
+    }
+
+    /**
+     * Simulates movement of liquids.
+     */
+    private fun liquidFlow() {
         val neighbors = get4Neighbors() + this
 
         neighbors.sortWith {
-                p1: Pixel, p2: Pixel -> (p1.getLiquidHeight(this) - p2.getLiquidHeight(this)).sign.toInt()
+                p1: Pixel, p2: Pixel -> (p1.getHeight(this) - p2.getHeight(this)).sign.toInt()
         }
         val diffs = Array(4) {
-                i -> neighbors[i+1].getLiquidHeight(this) - neighbors[i].getLiquidHeight(this)
+                i -> neighbors[i+1].getHeight(this) - neighbors[i].getHeight(this)
         } + Float.MAX_VALUE
         var thisDepth = liquidDepth
         for (i in 0 until 5) {
@@ -225,6 +245,10 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
         liquidInteraction(liquid, liquidDepth, type, amount).accept(this)
     }
 
+    private fun getHeight(): Float {
+        return elevation + liquidDepth + coatingThickness
+    }
+
     /**
      * If this is the checking pixel, only use elevation for calculation,
      * I'm not sure if that's better than just not doing that, but it works for now
@@ -232,22 +256,28 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
      * @param checkingPixel the pixel that this pixel is the neighbor of
      * @return the liquid height for purposes of water sharing
      */
-    private fun getLiquidHeight(checkingPixel: Pixel): Float {
+    private fun getHeight(checkingPixel: Pixel): Float {
         return if (checkingPixel != this && liquid.ordinal == checkingPixel.liquid.ordinal) {
             elevation + liquidDepth + coatingThickness
         } else elevation + coatingThickness
     }
 
-    /**
-     * Simulates movement of gasses from wind.
-     */
-    private fun gasFlow() {
+    private fun updateGas() {
         if (gasDensity <= 0 || gas == Gas.None) {
             gas = Gas.None
             gasDensity = 0f
             return
         }
 
+        if (temperature < gas.minTemp) gas.onCool.accept(this)
+
+        gasFlow()
+    }
+
+    /**
+     * Simulates movement of gasses from wind.
+     */
+    private fun gasFlow() {
         val wind = getWind(surface.size / 16)
         if (wind.first.x == 0f && wind.first.y == 0f) return
         val strength = (wind.second / 10f).coerceAtMost(1f)
@@ -324,11 +354,11 @@ class Pixel(private val position: Position, private val surface: PlanetSurface) 
 
         // Coriolis Effect
         val cor = surface.cube.changePositionSpherical(position,
-            if (surface.cube.getHemisphere(position) == Cube.FaceType.North && angularVelocity > 0)
+            if (surface.cube.getHemisphere(position) == Cube.FaceType.North && surface.angularVelocity > 0)
                 Cube.Directions.Right
             else Cube.Directions.Left
         ).first.toPVector().setMag(
-            angularVelocity.absoluteValue * PApplet.sin(surface.cube.getLatitude(position))
+            surface.angularVelocity.absoluteValue * PApplet.sin(surface.cube.getLatitude(position))
         )
         dist.setMag(speed)
         dist += cor

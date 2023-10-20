@@ -28,6 +28,7 @@ class PlanetSurface(val size: Int, val cube: Cube) {
     val solarEnergy = 5f
     val heatRadiation = 0.0115f
     val heatConductivity = 1
+    val angularVelocity = 40f
 
     init {
         for (p in pixels) {
@@ -65,7 +66,7 @@ class PlanetSurface(val size: Int, val cube: Cube) {
         pixels.forEach { it.update() }
         volcanoes.forEach { it.erupt() }
 
-        if (app.random(120f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
+//        if (app.random(120f) < 1) volcanoes.add(pixels[app.random((pixels.size - 1).toFloat()).toInt()])
         if (app.random(40f) < 1 && volcanoes.isNotEmpty()) volcanoes.removeFirst()
     }
 
